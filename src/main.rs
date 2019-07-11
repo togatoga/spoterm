@@ -38,9 +38,9 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
                 .split(size);
 
-            Block::default()
+            /*Block::default()
                 .style(Style::default().bg(Color::Black))
-                .render(&mut f, size);
+                .render(&mut f, size);*/
             Tabs::default()
                 .block(Block::default().borders(Borders::ALL).title("Menu"))
                 .titles(&vec!["Albums", "Artists"])
