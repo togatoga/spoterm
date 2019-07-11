@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .render(&mut f, size);*/
             Tabs::default()
                 .block(Block::default().borders(Borders::ALL).title("Menu"))
-                .titles(&vec!["Albums", "Artists"])
+                .titles(&vec!["Liked Songs", "Albums", "Artists"])
                 .select(0)
                 .style(Style::default().fg(Color::Cyan))
                 .highlight_style(Style::default().fg(Color::Red))
