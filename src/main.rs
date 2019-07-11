@@ -1,3 +1,4 @@
+extern crate spoterm;
 use std::io;
 
 use termion::event::{Key, Event};
@@ -10,6 +11,7 @@ use tui::style::{Color, Style};
 use tui::widgets::{Block, Borders, Tabs, Widget};
 use tui::Terminal;
 
+use spoterm::event;
 
 pub struct SpotTermMenuTab {
     title: String,
@@ -25,7 +27,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     terminal.hide_cursor()?;
-
+    let mut event_handler = event::EventHandler::new();
     // Main loop
     loop {
         terminal.draw(|mut f| {
@@ -48,19 +50,15 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .render(&mut f, chunks[0]);
 
         })?;
-        let stdin = io::stdin();
-        let mut events = stdin.events();
-        for event in events {
-            let event = event.unwrap();
-            match event {
-                Event::Key(Key::Char('q')) => {
-                    assert!(false);
+        match event_handler.next()? {
+            event::Event::KeyInput(key) => match key {
+                Key::Char('q') => {
+                    break;
                 },
                 _ => {}
-            }
+            },
+            _ => {}
         }
-
-
     }
     Ok(())
 }
