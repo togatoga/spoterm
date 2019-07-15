@@ -1,4 +1,7 @@
 extern crate dirs;
+#[macro_use]
+extern crate log;
+extern crate log4rs;
 extern crate serde;
 extern crate spoterm;
 extern crate toml;
@@ -16,9 +19,15 @@ use tui::style::{Color, Style};
 use tui::widgets::{Block, Borders, Tabs, Widget};
 use tui::Terminal;
 
+use log::LevelFilter;
+use log4rs::append::file::FileAppender;
+use log4rs::config;
+use log4rs::config::Appender;
+use log4rs::encode::pattern::PatternEncoder;
 use spoterm::config::UserConfig;
 use spoterm::event;
 use spoterm::spotify::SpotifyClient;
+
 
 pub struct SpotTermMenuTab {
     title: String,
@@ -41,11 +50,28 @@ fn get_spotify_client_id_and_secret() -> Result<(String, String), Box<std::error
 }
 
 fn main() -> Result<(), Box<std::error::Error>> {
+    let logfile = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{d} - {m}{n}")))
+        .build("log/output.log")?;
+    let config = config::Config::builder()
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .build(
+            config::Root::builder()
+                .appender("logfile")
+                .build(LevelFilter::Info),
+        )?;
+    log4rs::init_config(config)?;
+
     let (client_id, client_secret) = get_spotify_client_id_and_secret()?;
     let mut spotify_client = SpotifyClient::new(client_id, client_secret);
-    spotify_client.fetch_recent_play_history();
+    if let Err(e) = spotify_client.fetch_recent_play_history() {
+        info!("{}", e);
+    }
     for history in spotify_client.recent_play_history.clone().unwrap().iter() {
-        println!("Song: {} Artist: {}", history.track.name, history.track.artists[0].name);
+        info!(
+            "Song: {} Artist: {}",
+            history.track.name, history.track.artists[0].name
+        );
     }
     println!("{}", spotify_client.recent_play_history.is_some());
 
