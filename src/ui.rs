@@ -47,7 +47,7 @@ impl RecentPlayed {
             if selected > 0 {
                 self.selected_id = Some(selected - 1);
             } else {
-                self.selected_id = Some(0);
+                self.selected_id = Some(self.recent_play_histories.clone().unwrap().len() - 1);
             }
         } else {
             self.selected_id = Some(0);

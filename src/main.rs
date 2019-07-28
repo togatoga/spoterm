@@ -58,10 +58,27 @@ fn main() -> Result<(), Box<std::error::Error>> {
 
     let (client_id, client_secret) = get_spotify_client_id_and_secret()?;
     let mut spotify_client = SpotifyClient::new(client_id, client_secret);
-    spotify_client.fetch_device()?;
+
     if let Err(e) = spotify_client.fetch_recent_play_history() {
         info!("{}", e);
     }
+    if let Some(playing_track) = spotify_client.spotify.current_user_playing_track().unwrap() {
+        if let Some(full_track) = playing_track.item.clone() {
+            for (idx, play_history) in spotify_client
+                .recent_played
+                .clone()
+                .recent_play_histories
+                .unwrap()
+                .into_iter()
+                .enumerate()
+            {
+                if play_history.track.id.unwrap() == full_track.id.clone().unwrap() {
+                    spotify_client.recent_played.selected_id = Some(idx);
+                }
+            }
+        }
+    }
+
     //spotify_client.spotify.clone().start_playback()
     let mut play_histories = vec![];
     for history in spotify_client
@@ -94,6 +111,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
     let mut event_handler = event::EventHandler::new();
 
     // Main loop
+    spotify_client.fetch_device()?;
+
     loop {
         terminal.draw(|mut f| {
             let size = f.size();
@@ -127,6 +146,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
             let mut recent_played_view = spotify_client.recent_played.create_view().items(&items);
             recent_played_view.render(&mut f, chunks[1]);
         })?;
+
         match event_handler.next()? {
             event::Event::KeyInput(key) => match key {
                 Key::Char('q') => {
@@ -139,8 +159,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
                     spotify_client.recent_played.key_up();
                 }
                 Key::Char('\n') => {
-                    let uris = spotify_client.recent_played.key_enter();
                     let device_id = spotify_client.selected_device.clone().unwrap().id;
+                    let uris = spotify_client.recent_played.key_enter();
                     spotify_client.spotify.clone().start_playback(
                         Some(device_id),
                         None,
@@ -156,6 +176,37 @@ fn main() -> Result<(), Box<std::error::Error>> {
                         .spotify
                         .clone()
                         .pause_playback(Some(spotify_client.selected_device.clone().unwrap().id));
+                }
+                Key::PageUp => {
+                    let device_id = spotify_client.selected_device.clone().unwrap().id;
+                    let volume_percent = spotify_client
+                        .selected_device
+                        .clone()
+                        .unwrap()
+                        .volume_percent as u8;
+                    if volume_percent + 5 <= 100 {
+                        spotify_client
+                            .spotify
+                            .volume(volume_percent + 5, Some(device_id));
+                        info!("Volume up!! {}", volume_percent + 5);
+                        spotify_client.fetch_device()?;
+                    }
+                }
+                Key::PageDown => {
+                    spotify_client.spotify.current_user_playing_track();
+                    let device_id = spotify_client.selected_device.clone().unwrap().id;
+                    let volume_percent = spotify_client
+                        .selected_device
+                        .clone()
+                        .unwrap()
+                        .volume_percent as u8;
+                    if volume_percent > 0 {
+                        spotify_client
+                            .spotify
+                            .volume(volume_percent - 5, Some(device_id));
+                        info!("Volume Down!! {}", volume_percent - 5);
+                        spotify_client.fetch_device()?;
+                    }
                 }
                 _ => {}
             },
