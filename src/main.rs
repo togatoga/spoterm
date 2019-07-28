@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
 
     let (client_id, client_secret) = get_spotify_client_id_and_secret()?;
     let mut spotify_client = SpotifyClient::new(client_id, client_secret);
-    spotify_client.fetch_device()?;
+
     if let Err(e) = spotify_client.fetch_recent_play_history() {
         info!("{}", e);
     }
@@ -95,6 +95,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
 
     // Main loop
     loop {
+        spotify_client.fetch_device()?;
         terminal.draw(|mut f| {
             let size = f.size();
             let chunks = Layout::default()
@@ -127,6 +128,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
             let mut recent_played_view = spotify_client.recent_played.create_view().items(&items);
             recent_played_view.render(&mut f, chunks[1]);
         })?;
+
         match event_handler.next()? {
             event::Event::KeyInput(key) => match key {
                 Key::Char('q') => {
@@ -139,8 +141,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
                     spotify_client.recent_played.key_up();
                 }
                 Key::Char('\n') => {
-                    let uris = spotify_client.recent_played.key_enter();
                     let device_id = spotify_client.selected_device.clone().unwrap().id;
+                    let uris = spotify_client.recent_played.key_enter();
                     spotify_client.spotify.clone().start_playback(
                         Some(device_id),
                         None,
@@ -156,6 +158,22 @@ fn main() -> Result<(), Box<std::error::Error>> {
                         .spotify
                         .clone()
                         .pause_playback(Some(spotify_client.selected_device.clone().unwrap().id));
+                },
+                Key::PageUp => {
+                    let device_id = spotify_client.selected_device.clone().unwrap().id;
+                    let volume_percent = spotify_client.selected_device.clone().unwrap().volume_percent as u8;
+                    if volume_percent + 5 <= 100 {
+                        spotify_client.spotify.volume(volume_percent + 5, Some(device_id));
+                        info!("Volume up!! {}", volume_percent + 5);
+                    }
+                },
+                Key::PageDown => {
+                    let device_id = spotify_client.selected_device.clone().unwrap().id;
+                    let volume_percent = spotify_client.selected_device.clone().unwrap().volume_percent as u8;
+                    if volume_percent > 0 {
+                        spotify_client.spotify.volume(volume_percent - 5, Some(device_id));
+                        info!("Volume Down!! {}", volume_percent - 5);
+                    }
                 }
                 _ => {}
             },
