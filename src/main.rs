@@ -16,7 +16,7 @@ use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Style};
-use tui::widgets::{Block, Borders, Tabs, Widget};
+use tui::widgets::{Block, Borders, SelectableList, Tabs, Widget};
 use tui::Terminal;
 
 use log::LevelFilter;
@@ -27,12 +27,6 @@ use log4rs::encode::pattern::PatternEncoder;
 use spoterm::config::UserConfig;
 use spoterm::event;
 use spoterm::spotify::SpotifyClient;
-
-
-pub struct SpotTermMenuTab {
-    title: String,
-    index: usize,
-}
 
 fn get_spotify_client_id_and_secret() -> Result<(String, String), Box<std::error::Error>> {
     //read config from file
@@ -64,18 +58,31 @@ fn main() -> Result<(), Box<std::error::Error>> {
 
     let (client_id, client_secret) = get_spotify_client_id_and_secret()?;
     let mut spotify_client = SpotifyClient::new(client_id, client_secret);
+    spotify_client.fetch_device()?;
     if let Err(e) = spotify_client.fetch_recent_play_history() {
         info!("{}", e);
     }
-    for history in spotify_client.recent_play_history.clone().unwrap().iter() {
+    //spotify_client.spotify.clone().start_playback()
+    let mut play_histories = vec![];
+    for history in spotify_client
+        .recent_played
+        .recent_play_histories
+        .clone()
+        .unwrap()
+        .iter()
+    {
         info!(
-            "Song: {} Artist: {}",
-            history.track.name, history.track.artists[0].name
+            "Song: {} Artist: {} ID: {}",
+            history.track.name,
+            history.track.artists[0].name,
+            history.track.id.clone().unwrap()
         );
+        play_histories.push(format!(
+            "{} - {}",
+            history.track.name, history.track.artists[0].name
+        ));
     }
-    println!("{}", spotify_client.recent_play_history.is_some());
 
-    assert!(false);
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
@@ -85,6 +92,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
     terminal.hide_cursor()?;
 
     let mut event_handler = event::EventHandler::new();
+
     // Main loop
     loop {
         terminal.draw(|mut f| {
@@ -95,9 +103,6 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
                 .split(size);
 
-            /*Block::default()
-            .style(Style::default().bg(Color::Black))
-            .render(&mut f, size);*/
             Tabs::default()
                 .block(Block::default().borders(Borders::ALL).title("Menu"))
                 .titles(&vec!["Recently Played", "Albums", "Artists"])
@@ -105,11 +110,52 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .style(Style::default().fg(Color::Cyan))
                 .highlight_style(Style::default().fg(Color::Red))
                 .render(&mut f, chunks[0]);
+
+            let mut items = vec![];
+            for history in spotify_client
+                .recent_played
+                .recent_play_histories
+                .clone()
+                .unwrap()
+                .into_iter()
+            {
+                items.push(format!(
+                    "{} - {}",
+                    history.track.name, history.track.artists[0].name
+                ));
+            }
+            let mut recent_played_view = spotify_client.recent_played.create_view().items(&items);
+            recent_played_view.render(&mut f, chunks[1]);
         })?;
         match event_handler.next()? {
             event::Event::KeyInput(key) => match key {
                 Key::Char('q') => {
                     break;
+                }
+                Key::Down => {
+                    spotify_client.recent_played.key_down();
+                }
+                Key::Up => {
+                    spotify_client.recent_played.key_up();
+                }
+                Key::Char('\n') => {
+                    let uris = spotify_client.recent_played.key_enter();
+                    let device_id = spotify_client.selected_device.clone().unwrap().id;
+                    spotify_client.spotify.clone().start_playback(
+                        Some(device_id),
+                        None,
+                        Some(uris),
+                        None,
+                    )?;
+                    info!("Play Music!!");
+                    //info!("Play Music!! {:?}", uris);
+                    //spotify_client.spotify.start_playback(device_id);
+                }
+                Key::Char('p') => {
+                    spotify_client
+                        .spotify
+                        .clone()
+                        .pause_playback(Some(spotify_client.selected_device.clone().unwrap().id));
                 }
                 _ => {}
             },

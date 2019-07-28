@@ -1,14 +1,18 @@
 extern crate failure;
 extern crate rspotify;
 
-use self::rspotify::spotify::model::playing::PlayHistory;
+use rspotify::spotify::model::playing::PlayHistory;
 use rspotify::spotify::client::Spotify;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
+use rspotify::spotify::model::device::Device;
+use super::ui;
+
 
 pub struct SpotifyClient {
     pub spotify: Spotify,
-    pub recent_play_history: Option<Vec<PlayHistory>>,
+    pub selected_device: Option<Device>,
+    pub recent_played: ui::RecentPlayed,
 }
 //Authorization Scopes
 //https://developer.spotify.com/documentation/general/guides/scopes/
@@ -60,13 +64,31 @@ impl SpotifyClient {
             .build();
         SpotifyClient {
             spotify: spotify,
-            recent_play_history: None,
+            selected_device: None,
+            recent_played: ui::RecentPlayed::new(),
         }
+    }
+    pub fn fetch_device(&mut self) -> Result<(), failure::Error> {
+        match self.spotify.device() {
+            Ok(device_pay_load) => {
+                for device in device_pay_load.devices {
+                    //hardcode X(
+                    if device.name == "sheringham" {
+                        self.selected_device = Some(device);
+                        return Ok(());
+                    }
+                }
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
+        Ok(())
     }
     pub fn fetch_recent_play_history(&mut self) -> Result<(), failure::Error> {
         match self.spotify.clone().current_user_recently_played(50) {
             Ok(play_history) => {
-                self.recent_play_history = Some(play_history.items);
+                self.recent_played.recent_play_histories = Some(play_history.items);
             }
             Err(e) => {
                 return Err(e);
