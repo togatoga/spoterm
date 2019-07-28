@@ -35,7 +35,10 @@ impl RecentPlayed {
         let play_histories = self.recent_play_histories.clone().unwrap();
         let mut uris = vec![];
         for idx in selected_id..play_histories.len() {
-            uris.push(format!("spotify:track:{}", play_histories[idx].clone().track.id.unwrap()));
+            uris.push(format!(
+                "spotify:track:{}",
+                play_histories[idx].clone().track.id.unwrap()
+            ));
         }
         uris
     }

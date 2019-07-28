@@ -1,12 +1,10 @@
 use std::io;
-use std::thread;
 use std::sync::mpsc;
+use std::thread;
 use std::time::Duration;
 
 use termion::event::Key;
 use termion::input::TermRead;
-
-
 
 pub enum Event {
     KeyInput(Key),

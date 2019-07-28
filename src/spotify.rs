@@ -1,13 +1,12 @@
 extern crate failure;
 extern crate rspotify;
 
-use rspotify::spotify::model::playing::PlayHistory;
+use super::ui;
 use rspotify::spotify::client::Spotify;
+use rspotify::spotify::model::device::Device;
+use rspotify::spotify::model::playing::PlayHistory;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
-use rspotify::spotify::model::device::Device;
-use super::ui;
-
 
 pub struct SpotifyClient {
     pub spotify: Spotify,
@@ -47,7 +46,8 @@ impl SpotifyClient {
     pub fn new(client_id: String, client_secret: String) -> SpotifyClient {
         let spoterm_cache = dirs::home_dir()
             .expect("can not find home directory")
-            .join(".spoterm").join(".spotify_token_cache.json");
+            .join(".spoterm")
+            .join(".spotify_token_cache.json");
         let mut oauth = SpotifyOAuth::default()
             .scope(&SCOPES.join(" "))
             .client_id(&client_id)
