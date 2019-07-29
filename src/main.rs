@@ -189,6 +189,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 },
                 Key::Char('+') => {
                     let device_id = spotify_client.selected_device.clone().unwrap().id;
+
                     let volume_percent = spotify_client.selected_device.clone().unwrap().volume_percent as u8;
                     if volume_percent + 5 <= 100 {
                         spotify_client.spotify.volume(volume_percent + 5, Some(device_id));
@@ -204,6 +205,12 @@ fn main() -> Result<(), Box<std::error::Error>> {
                         info!("Volume Down!! {}", volume_percent - 5);
                         spotify_client.fetch_device()?;
                     }
+                },
+                Key::Char('>') => {
+                    spotify_client.spotify.clone().next_track(Some(device_id))?;
+                },
+                Key::Char('<') => {
+                    spotify_client.spotify.clone().previous_track(Some(device_id))?;
                 },
                 _ => {}
             },
