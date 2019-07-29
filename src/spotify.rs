@@ -2,6 +2,7 @@ extern crate failure;
 extern crate rspotify;
 extern crate hostname;
 extern crate itertools;
+extern crate unicode_width;
 use itertools::Itertools;
 
 use super::ui;
@@ -96,10 +97,19 @@ impl SpotifyClient {
                 let play_history_items: Vec<PlayHistory> = play_history.items.into_iter().unique_by(|x| x.track.clone().id).collect();
 
                 let mut items = vec![];
+                let max_track_name_width = play_history_items.iter().map(|x| {
+                    unicode_width::UnicodeWidthStr::width(x.track.name.as_str())
+                }).max().unwrap_or(0) + 15;
                 for history in play_history_items.iter() {
+                    let mut whitespace: String =  "".to_string();
+                    let mut tmp = history.track.name.clone() + &whitespace;
+                    while unicode_width::UnicodeWidthStr::width(tmp.as_str()) < max_track_name_width {
+                        whitespace += " ";
+                        tmp = history.track.name.clone() + &whitespace;
+                    }
                         items.push(format!(
-                            "{} - {}",
-                            history.track.name, history.track.artists[0].name
+                            "{}{}{}",
+                            history.track.name, whitespace, history.track.artists[0].name
                         ));
                     }
                 self.recent_played.recent_play_histories = Some(play_history_items);
