@@ -45,7 +45,7 @@ impl EventHandler {
                 let tx = tx.clone();
                 loop {
                     tx.send(Event::Tick).unwrap();
-                    thread::sleep(Duration::from_millis(250));
+                    thread::sleep(Duration::from_millis(3000));
                 }
             })
         };

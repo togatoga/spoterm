@@ -1,30 +1,35 @@
 use core::borrow::BorrowMut;
 use rspotify::spotify::model::playing::PlayHistory;
 use tui::widgets::{Block, Borders, SelectableList, Tabs, Widget};
+use tui;
 
 #[derive(Clone, Debug)]
+
 pub struct RecentPlayed {
     pub selected_id: Option<usize>,
     pub recent_play_histories: Option<Vec<PlayHistory>>,
+    pub items: Vec<String>,
 }
 
-impl RecentPlayed {
+impl RecentPlayed{
     pub fn new() -> RecentPlayed {
         RecentPlayed {
             selected_id: None,
             recent_play_histories: None,
+            items: vec![],
         }
     }
 
-    pub fn create_view(&self) -> SelectableList {
+    pub fn render<B>(&self, f: &mut tui::terminal::Frame<B>, area: tui::layout::Rect) where B:tui::backend::Backend {
         SelectableList::default()
             .block(
                 Block::default()
                     .borders(Borders::ALL)
                     .title("Recently Played"),
             )
+            .items(&self.items)
             .select(self.selected_id)
-            .highlight_symbol(">")
+            .highlight_symbol(">").render(f, area);
     }
 
     pub fn key_enter(&self) -> Vec<String> {
