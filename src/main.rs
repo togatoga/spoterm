@@ -143,9 +143,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .highlight_style(Style::default().fg(Color::Red))
                 .render(&mut f, chunks[0]);
 
+            spotify_client.recent_played.render(&mut f, chunks[1]);
 
-            let mut recent_played_view = spotify_client.recent_played.create_view();
-            recent_played_view.render(&mut f, chunks[1]);
         })?;
 
         match event_handler.next()? {
