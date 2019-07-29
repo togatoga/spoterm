@@ -1,25 +1,29 @@
-extern crate failure;
+extern crate crossbeam;
 extern crate rspotify;
-extern crate hostname;
-extern crate itertools;
-extern crate unicode_width;
-use itertools::Itertools;
 
-use super::ui;
-use rspotify::spotify::client::Spotify;
-use rspotify::spotify::model::device::Device;
-use rspotify::spotify::model::playing::PlayHistory;
-use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
-use rspotify::spotify::util::get_token;
-use self::rspotify::spotify::model::playing::Playing;
-use crate::ui::{UI, ContentsUI};
+use rspotify::spotify;
+use std::thread;
 
-pub struct SpotifyClient {
-    pub spotify: Spotify,
-    pub selected_device: Option<Device>,
-    pub recent_played: ui::RecentPlayed,
-    pub user_playing_track: Option<Playing>,
-    pub contents_ui: ContentsUI,
+pub enum SpotifyAPIEvent {
+    Pause(Option<String>),
+    CurrentPlayBack,
+    CurrentUserRecentlyPlayed,
+    Device,
+    StartPlayBack((Option<String>, Option<Vec<String>>)),
+}
+
+pub enum SpotifyAPIResult {
+    CurrentPlayBack(Option<spotify::model::context::FullPlayingContext>),
+    CurrentUserPlayingTrack(Option<spotify::model::playing::Playing>),
+    CurrentUserRecentlyPlayed(Vec<spotify::model::playing::PlayHistory>),
+    Device(Vec<spotify::model::device::Device>),
+}
+
+pub struct SpotifyService {
+    pub client: spotify::client::Spotify,
+    pub api_result_tx: Option<crossbeam::channel::Sender<SpotifyAPIResult>>,
+    pub api_event_tx: crossbeam::channel::Sender<SpotifyAPIEvent>,
+    pub api_event_rx: crossbeam::channel::Receiver<SpotifyAPIEvent>,
 }
 //Authorization Scopes
 //https://developer.spotify.com/documentation/general/guides/scopes/
@@ -50,87 +54,105 @@ const SCOPES: [&'static str; 18] = [
     "playlist-modify-private",
 ];
 
-impl SpotifyClient {
-    pub fn new(client_id: String, client_secret: String) -> SpotifyClient {
+impl SpotifyService {
+    pub fn new(client_id: String, client_secret: String) -> SpotifyService {
         let spoterm_cache = dirs::home_dir()
             .expect("can not find home directory")
             .join(".spoterm")
             .join(".spotify_token_cache.json");
-        let mut oauth = SpotifyOAuth::default()
+        let mut oauth = spotify::oauth2::SpotifyOAuth::default()
             .scope(&SCOPES.join(" "))
             .client_id(&client_id)
             .client_secret(&client_secret)
             .redirect_uri("http://localhost:8888/callback")
             .cache_path(spoterm_cache)
             .build();
-        let token_info = get_token(&mut oauth).expect("Auth failed");
-        let client_credential = SpotifyClientCredentials::default()
+        let token_info = spotify::util::get_token(&mut oauth).expect("Auth failed");
+        let client_credential = spotify::oauth2::SpotifyClientCredentials::default()
             .token_info(token_info)
             .build();
-        let spotify: Spotify = Spotify::default()
+        let spotify = spotify::client::Spotify::default()
             .client_credentials_manager(client_credential)
             .build();
-        let contents_ui = ContentsUI::new().ui(ui::RecentPlayed::new());
 
-        SpotifyClient {
-            spotify: spotify,
-            selected_device: None,
-            recent_played: ui::RecentPlayed::new(),
-            user_playing_track: None,
-            contents_ui: contents_ui,
+        let (tx, rx) = crossbeam::channel::unbounded();
+
+        SpotifyService {
+            client: spotify,
+            api_result_tx: None,
+            api_event_tx: tx,
+            api_event_rx: rx,
         }
     }
-    pub fn fetch_current_user_playing_track(&mut self) -> Result<(), failure::Error> {
-        self.user_playing_track = self.spotify.current_user_playing_track()?;
-        Ok(())
+    pub fn api_result_tx(mut self, tx: crossbeam::channel::Sender<SpotifyAPIResult>) -> Self {
+        self.api_result_tx = Some(tx);
+        self
     }
-    pub fn fetch_device(&mut self) -> Result<(), failure::Error> {
-        let local_hostname = hostname::get_hostname().expect("can not get hostname");
-        match self.spotify.device() {
-            Ok(device_pay_load) => {
-                for device in device_pay_load.devices {
-                    //hardcode X(
-                    if device.name == local_hostname {
-                        self.selected_device = Some(device);
-                        return Ok(());
-                    }
+    pub fn run(self) -> Result<(), failure::Error> {
+        let rx = self.api_event_rx.clone();
+        thread::spawn(move || loop {
+            match rx.recv().unwrap() {
+                SpotifyAPIEvent::Pause(device_id) => {
+                    self.pause_playback(device_id);
                 }
-                assert!(false);
+                SpotifyAPIEvent::Device => {
+                    self.fetch_device();
+                }
+                SpotifyAPIEvent::CurrentUserRecentlyPlayed => {
+                    self.fetch_current_user_recently_played();
+                }
+                SpotifyAPIEvent::StartPlayBack((device_id, uris)) => {
+                    self.fetch_start_playback(device_id, uris);
+                }
+                SpotifyAPIEvent::CurrentPlayBack => {
+                    self.fetch_current_playback();
+                }
+                _ => {}
             }
-            Err(e) => {
-                return Err(e);
-            }
-        }
+        });
         Ok(())
     }
-    pub fn fetch_recent_play_history(&mut self) -> Result<(), failure::Error> {
-        match self.spotify.clone().current_user_recently_played(50) {
-            Ok(play_history) => {
-                let play_history_items: Vec<PlayHistory> = play_history.items.into_iter().unique_by(|x| x.track.clone().id).collect();
-
-                let mut items = vec![];
-                let max_track_name_width = play_history_items.iter().map(|x| {
-                    unicode_width::UnicodeWidthStr::width(x.track.name.as_str())
-                }).max().unwrap_or(0) + 15;
-                for history in play_history_items.iter() {
-                    let mut whitespace: String =  "".to_string();
-                    let mut tmp = history.track.name.clone() + &whitespace;
-                    while unicode_width::UnicodeWidthStr::width(tmp.as_str()) < max_track_name_width {
-                        whitespace += " ";
-                        tmp = history.track.name.clone() + &whitespace;
-                    }
-                        items.push(format!(
-                            "{}{}{}",
-                            history.track.name, whitespace, history.track.artists[0].name
-                        ));
-                    }
-                self.recent_played.recent_play_histories = Some(play_history_items);
-                self.recent_played.items = items;
-            }
-            Err(e) => {
-                return Err(e);
-            }
-        };
+    fn fetch_start_playback(
+        &self,
+        device_id: Option<String>,
+        uris: Option<Vec<String>>,
+    ) -> Result<(), failure::Error> {
+        self.client.start_playback(device_id, None, uris, None)
+    }
+    fn fetch_current_user_recently_played(&self) -> Result<(), failure::Error> {
+        let items = self.client.clone().current_user_recently_played(50)?.items;
+        self.api_result_tx
+            .clone()
+            .unwrap()
+            .send(SpotifyAPIResult::CurrentUserRecentlyPlayed(items))?;
+        Ok(())
+    }
+    fn fetch_current_playback(&self) -> Result<(), failure::Error> {
+        let current_playback = self.client.current_playback(None)?;
+        self.api_result_tx
+            .clone()
+            .unwrap()
+            .send(SpotifyAPIResult::CurrentPlayBack(current_playback))?;
+        Ok(())
+    }
+    fn fetch_current_user_playing_track(&self) -> Result<(), failure::Error> {
+        let playing_track = self.client.current_user_playing_track()?;
+        self.api_result_tx
+            .clone()
+            .unwrap()
+            .send(SpotifyAPIResult::CurrentUserPlayingTrack(playing_track))?;
+        Ok(())
+    }
+    fn fetch_device(&self) -> Result<(), failure::Error> {
+        let devices = self.client.device()?.devices;
+        self.api_result_tx
+            .clone()
+            .unwrap()
+            .send(SpotifyAPIResult::Device(devices))?;
+        Ok(())
+    }
+    fn pause_playback(&self, device_id: Option<String>) -> Result<(), failure::Error> {
+        self.client.pause_playback(device_id);
         Ok(())
     }
 }

@@ -12,13 +12,18 @@ pub struct Profile {
 }
 impl Profile {
     fn new() -> Self {
-        Profile {client_id:"".to_string(), client_secret:"".to_string()}
+        Profile {
+            client_id: "".to_string(),
+            client_secret: "".to_string(),
+        }
     }
 }
 
 impl UserConfig {
     pub fn new() -> Self {
-        UserConfig {profile: Profile::new()}
+        UserConfig {
+            profile: Profile::new(),
+        }
     }
     pub fn client_id(mut self, client_id: String) -> Self {
         self.profile.client_id = client_id;
@@ -29,4 +34,3 @@ impl UserConfig {
         self
     }
 }
-
