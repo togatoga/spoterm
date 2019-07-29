@@ -2,17 +2,21 @@ use core::borrow::BorrowMut;
 use rspotify::spotify::model::playing::PlayHistory;
 use tui::widgets::{Block, Borders, SelectableList, Tabs, Widget};
 
+
 #[derive(Clone, Debug)]
+
 pub struct RecentPlayed {
     pub selected_id: Option<usize>,
     pub recent_play_histories: Option<Vec<PlayHistory>>,
+    pub items: Vec<String>,
 }
 
-impl RecentPlayed {
+impl RecentPlayed{
     pub fn new() -> RecentPlayed {
         RecentPlayed {
             selected_id: None,
             recent_play_histories: None,
+            items: vec![],
         }
     }
 
@@ -23,6 +27,7 @@ impl RecentPlayed {
                     .borders(Borders::ALL)
                     .title("Recently Played"),
             )
+            .items(&self.items)
             .select(self.selected_id)
             .highlight_symbol(">")
     }
