@@ -3,14 +3,35 @@ use rspotify::spotify::model::playing::{PlayHistory, Playing};
 use tui::widgets::{Block, Borders, SelectableList, Tabs, Widget};
 use tui;
 
-#[derive(Clone, Debug)]
 
+pub trait UI {}
+
+pub struct ContentsUI {
+    pub current_ui_index: Option<usize>,
+    pub uis: Vec<Box<UI>>,
+}
+
+impl ContentsUI {
+    pub fn new() -> ContentsUI {
+        ContentsUI{ current_ui_index: None, uis: vec![]}
+    }
+    pub fn ui<T: 'static + UI>(mut self, ui: T) -> Self {
+        self.uis.push(Box::new(ui));
+        self.current_ui_index = Some(0);
+        self
+    }
+
+}
+
+#[derive(Clone, Debug)]
 pub struct RecentPlayed {
     pub selected_id: Option<usize>,
     pub recent_play_histories: Option<Vec<PlayHistory>>,
     pub items: Vec<String>,
 }
 
+impl UI for RecentPlayed {
+}
 impl RecentPlayed{
     pub fn new() -> RecentPlayed {
         RecentPlayed {

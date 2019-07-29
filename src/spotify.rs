@@ -12,12 +12,14 @@ use rspotify::spotify::model::playing::PlayHistory;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
 use self::rspotify::spotify::model::playing::Playing;
+use crate::ui::{UI, ContentsUI};
 
 pub struct SpotifyClient {
     pub spotify: Spotify,
     pub selected_device: Option<Device>,
     pub recent_played: ui::RecentPlayed,
     pub user_playing_track: Option<Playing>,
+    pub contents_ui: ContentsUI,
 }
 //Authorization Scopes
 //https://developer.spotify.com/documentation/general/guides/scopes/
@@ -68,11 +70,14 @@ impl SpotifyClient {
         let spotify: Spotify = Spotify::default()
             .client_credentials_manager(client_credential)
             .build();
+        let contents_ui = ContentsUI::new().ui(ui::RecentPlayed::new());
+
         SpotifyClient {
             spotify: spotify,
             selected_device: None,
             recent_played: ui::RecentPlayed::new(),
             user_playing_track: None,
+            contents_ui: contents_ui,
         }
     }
     pub fn fetch_current_user_playing_track(&mut self) -> Result<(), failure::Error> {
