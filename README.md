@@ -12,4 +12,5 @@
 - [ ] Repeat
 - [ ] Like
 - [ ] Seek
-- [x] Volume
+- [x] Volume Up/Down
+- [x] Pause/Unpause
