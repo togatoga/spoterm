@@ -137,6 +137,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     terminal.hide_cursor()?;
+
+    spotify_client.fetch_device()?;
     let device_id = spotify_client.selected_device.as_ref().unwrap().id.clone();
 
     let mut event_handler = event::EventHandler::new();
@@ -178,11 +180,6 @@ fn main() -> Result<(), Box<std::error::Error>> {
                     spotify_client.recent_played.key_up();
                 }
                 Key::Char('\n') => {
-<<<<<<< HEAD
-                    let device_id = spotify_client.selected_device.clone().unwrap().id;
-=======
-
->>>>>>> 82ad27890c8e5ffa2701c00caa868678448635af
                     let uris = spotify_client.recent_played.key_enter();
                     spotify_client.spotify.clone().start_playback(
                         Some(device_id),
