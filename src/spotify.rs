@@ -11,11 +11,13 @@ use rspotify::spotify::model::device::Device;
 use rspotify::spotify::model::playing::PlayHistory;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
+use self::rspotify::spotify::model::playing::Playing;
 
 pub struct SpotifyClient {
     pub spotify: Spotify,
     pub selected_device: Option<Device>,
     pub recent_played: ui::RecentPlayed,
+    pub user_playing_track: Option<Playing>,
 }
 //Authorization Scopes
 //https://developer.spotify.com/documentation/general/guides/scopes/
@@ -70,7 +72,12 @@ impl SpotifyClient {
             spotify: spotify,
             selected_device: None,
             recent_played: ui::RecentPlayed::new(),
+            user_playing_track: None,
         }
+    }
+    pub fn fetch_current_user_playing_track(&mut self) -> Result<(), failure::Error> {
+        self.user_playing_track = self.spotify.current_user_playing_track()?;
+        Ok(())
     }
     pub fn fetch_device(&mut self) -> Result<(), failure::Error> {
         let local_hostname = hostname::get_hostname().expect("can not get hostname");

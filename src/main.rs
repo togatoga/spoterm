@@ -19,7 +19,7 @@ use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Style};
-use tui::widgets::{Block, Borders, SelectableList, Tabs, Widget};
+use tui::widgets::{Block, Borders, SelectableList, Tabs, Widget, List, Text};
 use tui::Terminal;
 
 use log::LevelFilter;
@@ -92,22 +92,6 @@ fn main() -> Result<(), Box<std::error::Error>> {
     if let Err(e) = spotify_client.fetch_recent_play_history() {
         info!("{}", e);
     }
-    if let Some(playing_track) = spotify_client.spotify.current_user_playing_track().unwrap() {
-        if let Some(full_track) = playing_track.item.clone() {
-            for (idx, play_history) in spotify_client
-                .recent_played
-                .clone()
-                .recent_play_histories
-                .unwrap()
-                .into_iter()
-                .enumerate()
-            {
-                if play_history.track.id.unwrap() == full_track.id.clone().unwrap() {
-                    spotify_client.recent_played.selected_id = Some(idx);
-                }
-            }
-        }
-    }
 
     //spotify_client.spotify.clone().start_playback()
     let mut play_histories = vec![];
@@ -145,7 +129,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
 
     // Main loop
     spotify_client.fetch_device()?;
-
+    spotify_client.fetch_current_user_playing_track()?;
+    spotify_client.recent_played.update_selected_id(spotify_client.user_playing_track.clone());
     loop {
         let device_id = spotify_client.selected_device.as_ref().unwrap().id.clone();
         terminal.draw(|mut f| {
@@ -153,7 +138,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .margin(5)
-                .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
+                .constraints([Constraint::Length(3), Constraint::Length(5), Constraint::Min(0)].as_ref())
                 .split(size);
 
             Tabs::default()
@@ -163,8 +148,18 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .style(Style::default().fg(Color::Cyan))
                 .highlight_style(Style::default().fg(Color::Red))
                 .render(&mut f, chunks[0]);
+            if let Some(playing) = spotify_client.user_playing_track.as_ref() {
+                let mut messages = vec![];
+                if let Some(item) = &playing.item {
+                    messages.push(format!("Title: {}", item.name));
+                    messages.push(format!("Artist: {}", item.artists[0].name));
+                    messages.push(format!("Album: {}", item.album.name));
+                }
+                let messages = messages.into_iter().map(|message| Text::raw(message));
 
-            spotify_client.recent_played.render(&mut f, chunks[1]);
+                List::new(messages).block(Block::default().borders(Borders::ALL).title("Playing")).render(&mut f, chunks[1]);
+            }
+            spotify_client.recent_played.render(&mut f, chunks[2]);
 
         })?;
 
@@ -236,6 +231,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
             },
             event::Event::Tick => {
                 spotify_client.fetch_recent_play_history()?;
+                spotify_client.fetch_current_user_playing_track()?;
+
             },
             _ => {}
         }

@@ -1,5 +1,5 @@
 use core::borrow::BorrowMut;
-use rspotify::spotify::model::playing::PlayHistory;
+use rspotify::spotify::model::playing::{PlayHistory, Playing};
 use tui::widgets::{Block, Borders, SelectableList, Tabs, Widget};
 use tui;
 
@@ -31,7 +31,29 @@ impl RecentPlayed{
             .select(self.selected_id)
             .highlight_symbol(">").render(f, area);
     }
+    pub fn update_selected_id(&mut self, playing: Option<Playing>) {
 
+        if playing.is_some() {
+            let playing = playing.unwrap();
+            if playing.item.is_some() {
+                let playing_track_id = playing.item.unwrap().id.unwrap_or("0".to_string());
+                match self.recent_play_histories.as_ref() {
+                    Some(histories) => {
+                        for (selected_id, history) in histories.clone().into_iter().enumerate() {
+                            if let Some(track_id) = history.track.id.as_ref() {
+                                if *track_id == playing_track_id {
+                                    self.selected_id = Some(selected_id);
+                                    break;
+                                }
+                            }
+                        }
+                    },
+                    _ => {}
+                }
+            }
+        }
+
+    }
     pub fn key_enter(&self) -> Vec<String> {
         if self.selected_id.is_none() || self.recent_play_histories.is_none() {
             return vec![];
