@@ -12,5 +12,6 @@
 - [ ] Repeat
 - [ ] Like
 - [ ] Seek
+- [ ] Next/Previous track
 - [x] Volume Up/Down
 - [x] Pause/Unpause
