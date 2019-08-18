@@ -177,6 +177,36 @@ impl SpotermClient {
             }
         }
     }
+    pub fn request_next_track(&self) {
+        if self.spotify_data.selected_device.is_none() {
+            return;
+        }
+        let device_id = self
+            .spotify_data
+            .selected_device
+            .as_ref()
+            .unwrap()
+            .id
+            .clone();
+        self.tx
+            .send(SpotifyAPIEvent::NextTrack(Some(device_id)))
+            .unwrap();
+    }
+    pub fn request_previous_track(&self) {
+        if self.spotify_data.selected_device.is_none() {
+            return;
+        }
+        let device_id = self
+            .spotify_data
+            .selected_device
+            .as_ref()
+            .unwrap()
+            .id
+            .clone();
+        self.tx
+            .send(SpotifyAPIEvent::PreviousTrack(Some(device_id)))
+            .unwrap();
+    }
     pub fn player_items(&self) -> Vec<Text> {
         let mut items = vec![];
         if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {

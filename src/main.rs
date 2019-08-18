@@ -110,7 +110,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 Key::Char('q') => {
                     break;
                 }
-                Key::Char('p') | Key::Char(' ')=> {
+                Key::Char('p') | Key::Char(' ') => {
                     spoterm.pause();
                     spoterm.request_current_playback();
                 }
@@ -122,6 +122,14 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 }
                 Key::Char('S') => {
                     spoterm.shuffle();
+                    spoterm.request_current_playback();
+                }
+                Key::Char('>') => {
+                    spoterm.request_next_track();
+                    spoterm.request_current_playback();
+                }
+                Key::Char('<') => {
+                    spoterm.request_previous_track();
                     spoterm.request_current_playback();
                 }
                 Key::Char('\n') => {

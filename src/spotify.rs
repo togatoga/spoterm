@@ -9,10 +9,12 @@ use std::thread;
 pub enum SpotifyAPIEvent {
     Shuffle(bool, Option<String>),
     Pause(Option<String>),
+    Device,
+    NextTrack(Option<String>),
+    PreviousTrack(Option<String>),
     CurrentPlayBack,
     CurrentUserRecentlyPlayed,
     CurrentUserSavedTracks(Option<u32>),
-    Device,
     StartPlayBack((Option<String>, Option<Vec<String>>)),
 }
 
@@ -106,6 +108,12 @@ impl SpotifyService {
                 SpotifyAPIEvent::Device => {
                     self.fetch_device();
                 }
+                SpotifyAPIEvent::NextTrack(device_id) => {
+                    self.fetch_next_track(device_id);
+                }
+                SpotifyAPIEvent::PreviousTrack(device_id) => {
+                    self.fetch_previous_track(device_id);
+                }
                 SpotifyAPIEvent::CurrentUserRecentlyPlayed => {
                     self.fetch_current_user_recently_played();
                 }
@@ -176,6 +184,14 @@ impl SpotifyService {
     }
     fn fetch_pause_playback(&self, device_id: Option<String>) -> Result<(), failure::Error> {
         self.client.pause_playback(device_id);
+        Ok(())
+    }
+    fn fetch_previous_track(&self, device_id: Option<String>) -> Result<(), failure::Error> {
+        self.client.previous_track(device_id)?;
+        Ok(())
+    }
+    fn fetch_next_track(&self, device_id: Option<String>) -> Result<(), failure::Error> {
+        self.client.next_track(device_id)?;
         Ok(())
     }
 }
