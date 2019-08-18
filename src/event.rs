@@ -9,12 +9,14 @@ use termion::input::TermRead;
 pub enum Event {
     KeyInput(Key),
     Tick,
+    APIUpdate,
 }
 
 pub struct EventHandler {
     rx: mpsc::Receiver<Event>,
     input_handle: thread::JoinHandle<()>,
     tick_handle: thread::JoinHandle<()>,
+    api_update_handle: thread::JoinHandle<()>,
 }
 
 impl EventHandler {
@@ -45,14 +47,26 @@ impl EventHandler {
                 let tx = tx.clone();
                 loop {
                     tx.send(Event::Tick).unwrap();
+                    thread::sleep(Duration::from_millis(30));
+                }
+            })
+        };
+        let api_update_handle = {
+            let tx = tx.clone();
+            thread::spawn(move || {
+                let tx = tx.clone();
+                loop {
+                    tx.send(Event::APIUpdate).unwrap();
                     thread::sleep(Duration::from_millis(3000));
                 }
             })
         };
+
         EventHandler {
             rx: rx,
             input_handle: input_handle,
             tick_handle: tick_handle,
+            api_update_handle: api_update_handle,
         }
     }
     pub fn next(&self) -> Result<Event, mpsc::RecvError> {

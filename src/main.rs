@@ -2,11 +2,11 @@ extern crate dirs;
 #[macro_use]
 extern crate log;
 extern crate log4rs;
+extern crate rpassword;
+extern crate rspotify;
 extern crate serde;
 extern crate spoterm;
 extern crate toml;
-extern crate rpassword;
-extern crate rspotify;
 
 use std::fs;
 use std::io;
@@ -19,7 +19,7 @@ use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Style};
-use tui::widgets::{Block, Borders, SelectableList, Tabs, Widget, List, Text};
+use tui::widgets::{Block, Borders, List, SelectableList, Tabs, Text, Widget};
 use tui::Terminal;
 
 use log::LevelFilter;
@@ -29,16 +29,15 @@ use log4rs::config::Appender;
 use log4rs::encode::pattern::PatternEncoder;
 use spoterm::config::UserConfig;
 use spoterm::event;
-use spoterm::spotify::SpotifyClient;
-
+use spoterm::spoterm::SpotermClient;
+use spoterm::ui::UI;
 
 fn init_spoterm_config_if_needed() -> Result<(), failure::Error> {
-
     let config_dir = dirs::home_dir()
         .expect("can not find home directory")
         .join(".spoterm");
     //create a config dir ~/.spoterm/ if needed
-    if !config_dir.exists(){
+    if !config_dir.exists() {
         fs::create_dir_all(config_dir.clone())?;
     }
     //create a config file ~/.spoterm/config.toml if needed
@@ -48,7 +47,9 @@ fn init_spoterm_config_if_needed() -> Result<(), failure::Error> {
         println!("config.toml not found and input your <CLIENT ID> and <CLIENT SECRET>");
         let client_id = rpassword::read_password_from_tty(Some("Client ID: "))?;
         let client_secret = rpassword::read_password_from_tty(Some("Client Secret: "))?;
-        let user_config = UserConfig::new().client_id(client_id).client_secret(client_secret);
+        let user_config = UserConfig::new()
+            .client_id(client_id)
+            .client_secret(client_secret);
         fs::write(config.as_path(), toml::to_string(&user_config)?)?;
         //println!("Save your <CLIENT ID> and <CLIENT SECRET> in {}", config.as_os_str().to_os_string());
     }
@@ -73,7 +74,6 @@ fn get_spotify_client_id_and_secret() -> Result<(String, String), Box<std::error
 fn main() -> Result<(), Box<std::error::Error>> {
     init_spoterm_config_if_needed()?;
 
-
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{d} - {m}{n}")))
         .build("log/output.log")?;
@@ -87,32 +87,10 @@ fn main() -> Result<(), Box<std::error::Error>> {
     log4rs::init_config(config)?;
 
     let (client_id, client_secret) = get_spotify_client_id_and_secret()?;
-    let mut spotify_client = SpotifyClient::new(client_id, client_secret);
-
-    if let Err(e) = spotify_client.fetch_recent_play_history() {
-        info!("{}", e);
-    }
-
-    //spotify_client.spotify.clone().start_playback()
-    let mut play_histories = vec![];
-    for history in spotify_client
-        .recent_played
-        .recent_play_histories
-        .clone()
-        .unwrap()
-        .iter()
-    {
-        info!(
-            "Song: {} Artist: {} ID: {}",
-            history.track.name,
-            history.track.artists[0].name,
-            history.track.id.clone().unwrap()
-        );
-        play_histories.push(format!(
-            "{} - {}",
-            history.track.name, history.track.artists[0].name
-        ));
-    }
+    let mut spoterm = SpotermClient::new(client_id, client_secret);
+    spoterm.request_device();
+    spoterm.request_current_user_recently_played();
+    spoterm.request_current_playback();
 
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
@@ -122,18 +100,78 @@ fn main() -> Result<(), Box<std::error::Error>> {
     let mut terminal = Terminal::new(backend)?;
     terminal.hide_cursor()?;
 
-    spotify_client.fetch_device()?;
-    let device_id = spotify_client.selected_device.as_ref().unwrap().id.clone();
+    let event_handler = event::EventHandler::new();
+    loop {
+        let content_ui = &mut spoterm.contents.uis[spoterm.selected_menu_tab_id];
+        content_ui.set_data(&spoterm.spotify_data);
+        match event_handler.next()? {
+            event::Event::KeyInput(key) => match key {
+                Key::Char('q') => {
+                    break;
+                }
+                Key::Char('p') => {
+                    spoterm.pause();
+                    spoterm.request_current_playback();
+                }
+                Key::Down => {
+                    content_ui.key_down();
+                }
+                Key::Up => {
+                    content_ui.key_up();
+                }
+                Key::Char('\n') => {
+                    content_ui.key_enter();
+                }
+                Key::Right => {
+                    spoterm.move_to_next_menu_tab();
+                }
+                Key::Left => {
+                    spoterm.move_to_previous_menu_tab();
+                }
+                _ => {}
+            },
+            event::Event::Tick => {
+                spoterm.fetch_api_result();
+                spoterm.set_selected_device();
+            }
+            event::Event::APIUpdate => {
+                spoterm.request_current_playback();
+            }
+            _ => {}
+        }
 
-    let mut event_handler = event::EventHandler::new();
+        terminal.draw(|mut f| {
+            let size = f.size();
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(5)
+                .constraints(
+                    [
+                        Constraint::Length(3),
+                        Constraint::Length(5),
+                        Constraint::Min(0),
+                    ]
+                    .as_ref(),
+                )
+                .split(size);
 
-    // Main loop
-    spotify_client.fetch_device()?;
-    spotify_client.fetch_current_user_playing_track()?;
-    spotify_client.recent_played.update_selected_id(spotify_client.user_playing_track.clone());
+            Tabs::default()
+                .block(Block::default().borders(Borders::ALL).title("Menu"))
+                .titles(&spoterm.menu_tabs)
+                .select(spoterm.selected_menu_tab_id)
+                .style(Style::default().fg(Color::Cyan))
+                .highlight_style(Style::default().fg(Color::Red))
+                .render(&mut f, chunks[0]);
+            spoterm.contents.uis[spoterm.selected_menu_tab_id].render(&mut f, chunks[2]);
+        });
+    }
+
+    /*
+
     loop {
         let device_id = spotify_client.selected_device.as_ref().unwrap().id.clone();
         terminal.draw(|mut f| {
+
             let size = f.size();
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
@@ -175,13 +213,13 @@ fn main() -> Result<(), Box<std::error::Error>> {
                     spotify_client.recent_played.key_up();
                 }
                 Key::Char('\n') => {
-                    let uris = spotify_client.recent_played.key_enter();
+                    /*let uris = spotify_client.recent_played.key_enter();
                     spotify_client.spotify.clone().start_playback(
                         Some(device_id),
                         None,
                         Some(uris),
                         None,
-                    )?;
+                    )?;*/
                     info!("Play Music!!");
                     //info!("Play Music!! {:?}", uris);
                     //spotify_client.spotify.start_playback(device_id);
@@ -236,6 +274,6 @@ fn main() -> Result<(), Box<std::error::Error>> {
             },
             _ => {}
         }
-    }
+    }*/
     Ok(())
 }
