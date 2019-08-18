@@ -110,30 +110,27 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 Key::Char('q') => {
                     break;
                 }
-                Key::Char('p') => {
+                Key::Char('p') | Key::Char(' ')=> {
                     spoterm.pause();
                     spoterm.request_current_playback();
                 }
-                Key::Char('j') => {
+                Key::Down | Key::Char('j') => {
                     content_ui.key_down();
                 }
-                Key::Char('k') => {
+                Key::Up | Key::Char('k') => {
                     content_ui.key_up();
                 }
                 Key::Char('S') => {
                     spoterm.shuffle();
                     spoterm.request_current_playback();
                 }
-                Key::Char(' ') => {
-                    content_ui.key_enter();
-                }
                 Key::Char('\n') => {
                     content_ui.key_enter();
                 }
-                Key::Char('l') => {
+                Key::Right | Key::Char('l') => {
                     spoterm.move_to_next_menu_tab();
                 }
-                Key::Char('h') => {
+                Key::Left | Key::Char('h') => {
                     spoterm.move_to_previous_menu_tab();
                 }
                 _ => {}
