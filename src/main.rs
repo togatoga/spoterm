@@ -91,7 +91,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
     spoterm.request_device();
     spoterm.request_current_user_recently_played();
     spoterm.request_current_playback();
-
+    spoterm.request_current_user_saved_tracks();
+    spoterm.set_selected_device();
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
@@ -118,6 +119,10 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 }
                 Key::Up => {
                     content_ui.key_up();
+                }
+                Key::Char('S') => {
+                    spoterm.shuffle();
+                    spoterm.request_current_playback();
                 }
                 Key::Char('\n') => {
                     content_ui.key_enter();
@@ -166,115 +171,5 @@ fn main() -> Result<(), Box<std::error::Error>> {
             spoterm.contents.uis[spoterm.selected_menu_tab_id].render(&mut f, chunks[2]);
         });
     }
-
-    /*
-
-    loop {
-        let device_id = spotify_client.selected_device.as_ref().unwrap().id.clone();
-        terminal.draw(|mut f| {
-
-            let size = f.size();
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .margin(5)
-                .constraints([Constraint::Length(3), Constraint::Length(5), Constraint::Min(0)].as_ref())
-                .split(size);
-
-            Tabs::default()
-                .block(Block::default().borders(Borders::ALL).title("Menu"))
-                .titles(&vec!["Recently Played", "Albums", "Artists"])
-                .select(0)
-                .style(Style::default().fg(Color::Cyan))
-                .highlight_style(Style::default().fg(Color::Red))
-                .render(&mut f, chunks[0]);
-            if let Some(playing) = spotify_client.user_playing_track.as_ref() {
-                let mut messages = vec![];
-                if let Some(item) = &playing.item {
-                    messages.push(format!("Title: {}", item.name));
-                    messages.push(format!("Artist: {}", item.artists[0].name));
-                    messages.push(format!("Album: {}", item.album.name));
-                }
-                let messages = messages.into_iter().map(|message| Text::raw(message));
-
-                List::new(messages).block(Block::default().borders(Borders::ALL).title("Playing")).render(&mut f, chunks[1]);
-            }
-            spotify_client.recent_played.render(&mut f, chunks[2]);
-
-        })?;
-
-        match event_handler.next()? {
-            event::Event::KeyInput(key) => match key {
-                Key::Char('q') => {
-                    break;
-                }
-                Key::Down => {
-                    spotify_client.recent_played.key_down();
-                }
-                Key::Up => {
-                    spotify_client.recent_played.key_up();
-                }
-                Key::Char('\n') => {
-                    /*let uris = spotify_client.recent_played.key_enter();
-                    spotify_client.spotify.clone().start_playback(
-                        Some(device_id),
-                        None,
-                        Some(uris),
-                        None,
-                    )?;*/
-                    info!("Play Music!!");
-                    //info!("Play Music!! {:?}", uris);
-                    //spotify_client.spotify.start_playback(device_id);
-                }
-                Key::Char('p') => {
-
-                    if let Some(current_play_back) = spotify_client.spotify.clone().current_playback(None)? {
-                        if current_play_back.is_playing {
-                            //pause
-                            spotify_client
-                                .spotify
-                                .clone()
-                                .pause_playback(Some(spotify_client.selected_device.clone().unwrap().id))?;
-                        } else {
-                            //unpause
-                            spotify_client.spotify.clone().start_playback(Some(device_id.clone()), None, None, None)?;
-                        }
-                    }
-
-                },
-                Key::Char('+') => {
-                    let device_id = spotify_client.selected_device.clone().unwrap().id;
-
-                    let volume_percent = spotify_client.selected_device.clone().unwrap().volume_percent as u8;
-                    if volume_percent + 5 <= 100 {
-                        spotify_client.spotify.volume(volume_percent + 5, Some(device_id));
-                        info!("Volume up!! {}", volume_percent + 5);
-                        spotify_client.fetch_device()?;
-                    }
-                },
-                Key::Char('-') => {
-                    let device_id = spotify_client.selected_device.clone().unwrap().id;
-                    let volume_percent = spotify_client.selected_device.clone().unwrap().volume_percent as u8;
-                    if volume_percent > 0 {
-                        spotify_client.spotify.volume(volume_percent - 5, Some(device_id));
-                        info!("Volume Down!! {}", volume_percent - 5);
-                        spotify_client.fetch_device()?;
-                    }
-                },
-                Key::Char('>') => {
-                    spotify_client.spotify.clone().next_track(Some(device_id))?;
-                },
-                Key::Char('<') => {
-                    spotify_client.spotify.clone().previous_track(Some(device_id))?;
-                },
-                _ => {}
-            },
-            event::Event::Tick => {
-                spotify_client.fetch_recent_play_history()?;
-                spotify_client.fetch_current_user_playing_track()?;
-
-            },
-            _ => {}
-        }
-    }*/
     Ok(())
 }

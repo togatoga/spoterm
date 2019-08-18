@@ -8,9 +8,11 @@ use itertools::Itertools;
 use self::rspotify::spotify::model::playing::Playing;
 use super::ui;
 use crate::spotify::{SpotifyAPIEvent, SpotifyAPIResult, SpotifyService};
-use crate::ui::{Contents, RecentPlayed, UI};
+use crate::ui::{Contents, LikedSongs, RecentPlayed, UI};
 
 use self::rspotify::spotify::model::context::FullPlayingContext;
+use self::rspotify::spotify::model::page::Page;
+use self::rspotify::spotify::model::track::SavedTrack;
 use rspotify::spotify::client::Spotify;
 use rspotify::spotify::model::device::Device;
 use rspotify::spotify::model::playing::PlayHistory;
@@ -21,6 +23,7 @@ use std::thread;
 #[derive(Clone, Debug)]
 pub struct SpotifyData {
     pub devices: Option<Vec<Device>>,
+    pub page_saved_tracks: Vec<Page<SavedTrack>>,
     pub recent_play_histories: Option<Vec<PlayHistory>>,
     pub current_playback: Option<FullPlayingContext>,
     pub selected_device: Option<Device>,
@@ -30,6 +33,7 @@ impl SpotifyData {
     pub fn new() -> SpotifyData {
         SpotifyData {
             devices: None,
+            page_saved_tracks: Vec::new(),
             recent_play_histories: None,
             current_playback: None,
             selected_device: None,
@@ -82,15 +86,17 @@ impl SpotermClient {
         let spotify = SpotifyService::new(client_id, client_secret).api_result_tx(tx.clone());
 
         let api_event_tx = spotify.api_event_tx.clone();
-        let contents = Contents::new().ui(RecentPlayed::new(api_event_tx.clone()));
+        let contents = Contents::new()
+            .ui(RecentPlayed::new(api_event_tx.clone()))
+            .ui(LikedSongs::new(api_event_tx.clone()));
         spotify.run();
         SpotermClient {
             tx: api_event_tx.clone(),
             rx: rx.clone(),
             spotify_data: SpotifyData::new(),
             menu_tabs: vec![
-                "Recently Played".to_string(),
-                "Albums".to_string(),
+                "📝 Recently Played 📝".to_string(),
+                "❤ Liked Songs ❤".to_string(),
                 "Artists".to_string(),
             ],
             selected_menu_tab_id: 0,
@@ -108,6 +114,9 @@ impl SpotermClient {
                 }
                 SpotifyAPIResult::CurrentPlayBack(current_playback) => {
                     self.spotify_data.current_playback = current_playback;
+                }
+                SpotifyAPIResult::CurrentUserSavedTracks(page_saved_tracks) => {
+                    self.spotify_data.page_saved_tracks.push(page_saved_tracks);
                 }
                 _ => {}
             }
@@ -127,6 +136,11 @@ impl SpotermClient {
             self.selected_menu_tab_id = self.menu_tabs.len() - 1;
         }
     }
+    pub fn request_current_user_saved_tracks(&self) {
+        self.tx
+            .send(SpotifyAPIEvent::CurrentUserSavedTracks(None))
+            .unwrap();
+    }
     pub fn request_current_playback(&self) {
         self.tx.send(SpotifyAPIEvent::CurrentPlayBack).unwrap();
     }
@@ -138,8 +152,7 @@ impl SpotermClient {
     pub fn request_device(&self) {
         self.tx.send(SpotifyAPIEvent::Device).unwrap();
     }
-
-    pub fn pause(&self) {
+    pub fn shuffle(&self) {
         if self.spotify_data.selected_device.is_none() {
             return;
         }
@@ -151,20 +164,49 @@ impl SpotermClient {
             .id
             .clone();
         if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
+            if current_playback.shuffle_state {
+                self.tx
+                    .send(SpotifyAPIEvent::Shuffle(false, Some(device_id)))
+                    .unwrap();
+            } else {
+                self.tx
+                    .send(SpotifyAPIEvent::Shuffle(true, Some(device_id)))
+                    .unwrap();
+            }
+        }
+    }
+    pub fn pause(&self) {
+        if self.spotify_data.selected_device.is_none() {
+            return;
+        }
+
+        let device_id = self
+            .spotify_data
+            .selected_device
+            .as_ref()
+            .unwrap()
+            .clone()
+            .id;
+        if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
             //pause
             if current_playback.is_playing {
                 self.tx
-                    .send(SpotifyAPIEvent::Pause(Some(device_id)))
+                    .send(SpotifyAPIEvent::Pause(Some(device_id.clone())))
                     .unwrap();
             } else {
                 //unpause
                 self.tx
-                    .send(SpotifyAPIEvent::StartPlayBack((Some(device_id), None)))
+                    .send(SpotifyAPIEvent::StartPlayBack((
+                        Some(device_id.clone()),
+                        None,
+                    )))
                     .unwrap();
             }
+        } else {
+            self.tx
+                .send(SpotifyAPIEvent::Pause(Some(device_id.clone())))
+                .unwrap();
         }
-
-        //self.tx.send(SpotifyAPIEvent::Pause(Some(device_id))).unwrap();
     }
 
     pub fn set_selected_device(&mut self) -> Result<(), failure::Error> {

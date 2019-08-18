@@ -1,13 +1,17 @@
 extern crate crossbeam;
 extern crate rspotify;
 
+use self::rspotify::spotify::model::page::Page;
+use self::rspotify::spotify::model::track::SavedTrack;
 use rspotify::spotify;
 use std::thread;
 
 pub enum SpotifyAPIEvent {
+    Shuffle(bool, Option<String>),
     Pause(Option<String>),
     CurrentPlayBack,
     CurrentUserRecentlyPlayed,
+    CurrentUserSavedTracks(Option<u32>),
     Device,
     StartPlayBack((Option<String>, Option<Vec<String>>)),
 }
@@ -16,6 +20,7 @@ pub enum SpotifyAPIResult {
     CurrentPlayBack(Option<spotify::model::context::FullPlayingContext>),
     CurrentUserPlayingTrack(Option<spotify::model::playing::Playing>),
     CurrentUserRecentlyPlayed(Vec<spotify::model::playing::PlayHistory>),
+    CurrentUserSavedTracks(Page<SavedTrack>),
     Device(Vec<spotify::model::device::Device>),
 }
 
@@ -92,14 +97,20 @@ impl SpotifyService {
         let rx = self.api_event_rx.clone();
         thread::spawn(move || loop {
             match rx.recv().unwrap() {
+                SpotifyAPIEvent::Shuffle(state, device_id) => {
+                    self.fetch_shuffle(state, device_id);
+                }
                 SpotifyAPIEvent::Pause(device_id) => {
-                    self.pause_playback(device_id);
+                    self.fetch_pause_playback(device_id);
                 }
                 SpotifyAPIEvent::Device => {
                     self.fetch_device();
                 }
                 SpotifyAPIEvent::CurrentUserRecentlyPlayed => {
                     self.fetch_current_user_recently_played();
+                }
+                SpotifyAPIEvent::CurrentUserSavedTracks(offset) => {
+                    self.fetch_current_user_saved_tracks(offset);
                 }
                 SpotifyAPIEvent::StartPlayBack((device_id, uris)) => {
                     self.fetch_start_playback(device_id, uris);
@@ -151,7 +162,19 @@ impl SpotifyService {
             .send(SpotifyAPIResult::Device(devices))?;
         Ok(())
     }
-    fn pause_playback(&self, device_id: Option<String>) -> Result<(), failure::Error> {
+    fn fetch_current_user_saved_tracks(&self, offset: Option<u32>) -> Result<(), failure::Error> {
+        let saved_tracks = self.client.current_user_saved_tracks(Some(50), offset)?;
+        self.api_result_tx
+            .clone()
+            .unwrap()
+            .send(SpotifyAPIResult::CurrentUserSavedTracks(saved_tracks))?;
+        Ok(())
+    }
+    fn fetch_shuffle(&self, state: bool, device_id: Option<String>) -> Result<(), failure::Error> {
+        self.client.shuffle(state, device_id)?;
+        Ok(())
+    }
+    fn fetch_pause_playback(&self, device_id: Option<String>) -> Result<(), failure::Error> {
         self.client.pause_playback(device_id);
         Ok(())
     }
