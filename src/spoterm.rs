@@ -97,7 +97,7 @@ impl SpotermClient {
             menu_tabs: vec![
                 "📝 Recently Played 📝".to_string(),
                 "❤ Liked Songs ❤".to_string(),
-                "Artists".to_string(),
+                //"Artists".to_string(),
             ],
             selected_menu_tab_id: 0,
             contents: contents,
