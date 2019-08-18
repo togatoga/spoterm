@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .constraints(
                     [
                         Constraint::Length(3),
-                        Constraint::Length(7),
+                        Constraint::Length(5),
                         Constraint::Min(0),
                     ]
                     .as_ref(),
