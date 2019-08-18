@@ -136,6 +136,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
             }
             event::Event::APIUpdate => {
                 spoterm.request_current_playback();
+                spoterm.request_current_user_recently_played();
             }
             _ => {}
         }
