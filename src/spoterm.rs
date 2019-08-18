@@ -19,6 +19,8 @@ use rspotify::spotify::model::playing::PlayHistory;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
 use std::thread;
+use tui::style::{Color, Style};
+use tui::widgets::Text;
 
 #[derive(Clone, Debug)]
 pub struct SpotifyData {
@@ -174,6 +176,56 @@ impl SpotermClient {
                     .unwrap();
             }
         }
+    }
+    pub fn player_items(&self) -> Vec<Text> {
+        let mut items = vec![];
+        if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
+            if let Some(playing_track) = current_playback.item.as_ref() {
+                items.push(Text::styled(
+                    format!(
+                        "🎵 Song: {} |👩‍ 🎤 Artist: {} | 💿 Album: {}",
+                        playing_track.name, playing_track.artists[0].name, playing_track.album.name
+                    ),
+                    Style::default().fg(Color::White),
+                ));
+                //Status
+                let playing_icon = if current_playback.is_playing {
+                    //headphone
+                    "🎧"
+                } else {
+                    //stop
+                    "⏹️"
+                };
+                let shuffle_state_icon = if current_playback.shuffle_state {
+                    //shuffle
+                    "🔀"
+                } else {
+                    "❌"
+                };
+
+                let duration_sec = playing_track.duration_ms / 1000;
+                let duration = format!("{:02}:{:02}", duration_sec / 60, duration_sec % 60);
+                let progress_sec = current_playback.progress_ms.unwrap_or(0) / 1000;
+                let progress = format!("{:02}:{:02}", progress_sec / 60, progress_sec % 60);
+
+                items.push(Text::styled(
+                    format!(
+                        "Progress: {} / {} | Playing: {} | Shuffle: {}",
+                        progress, duration, playing_icon, shuffle_state_icon
+                    ),
+                    Style::default(),
+                ));
+            }
+
+            items.push(Text::styled(
+                format!(
+                    "🔊 Volume: {} | 💻 Device Name: {}",
+                    current_playback.device.volume_percent, current_playback.device.name
+                ),
+                Style::default(),
+            ));
+        }
+        return items;
     }
     pub fn pause(&self) {
         if self.spotify_data.selected_device.is_none() {

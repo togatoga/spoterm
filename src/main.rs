@@ -130,10 +130,10 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 Key::Char('\n') => {
                     content_ui.key_enter();
                 }
-                Key::Char('L') => {
+                Key::Char('l') => {
                     spoterm.move_to_next_menu_tab();
                 }
-                Key::Char('H') => {
+                Key::Char('h') => {
                     spoterm.move_to_previous_menu_tab();
                 }
                 _ => {}
@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .constraints(
                     [
                         Constraint::Length(3),
-                        Constraint::Length(5),
+                        Constraint::Length(7),
                         Constraint::Min(0),
                     ]
                     .as_ref(),
@@ -171,6 +171,11 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .style(Style::default().fg(Color::Cyan))
                 .highlight_style(Style::default().fg(Color::Red))
                 .render(&mut f, chunks[0]);
+
+            List::new(spoterm.player_items().into_iter())
+                .block(Block::default().borders(Borders::ALL).title("Player"))
+                .render(&mut f, chunks[1]);
+
             spoterm.contents.uis[spoterm.selected_menu_tab_id].render(&mut f, chunks[2]);
         });
     }
