@@ -120,6 +120,9 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 Key::Up | Key::Char('k') => {
                     content_ui.key_up();
                 }
+                Key::Char('F') => {
+                    spoterm.request_save_current_playback();
+                }
                 Key::Char('+') => {
                     spoterm.request_volume(true);
                 }
@@ -160,6 +163,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 spoterm.request_device();
                 spoterm.request_current_playback();
                 spoterm.request_current_user_recently_played();
+                //spoterm.request_current_user_saved_tracks();
+                spoterm.request_check_unknown_saved_tracks();
             }
             _ => {}
         }

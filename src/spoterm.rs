@@ -13,6 +13,7 @@ use crate::ui::{Contents, LikedSongs, RecentPlayed, UI};
 use self::rspotify::spotify::model::context::FullPlayingContext;
 use self::rspotify::spotify::model::page::Page;
 use self::rspotify::spotify::model::track::SavedTrack;
+use crate::spoterm::SaveState::{CHECKING, SAVED, UNKNOWN};
 use rspotify::spotify::client::Spotify;
 use rspotify::spotify::model::device::Device;
 use rspotify::spotify::model::playing::PlayHistory;
@@ -20,27 +21,40 @@ use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::senum::RepeatState;
 use rspotify::spotify::util::get_token;
 use std::cmp;
+use std::collections::HashMap;
 use std::thread;
 use tui::style::{Color, Style};
 use tui::widgets::Text;
 
 #[derive(Clone, Debug)]
+pub enum SaveState {
+    SAVED,
+    UNSAVED,
+    SAVING,
+    UNSAVING,
+    CHECKING,
+    UNKNOWN,
+}
+
+#[derive(Clone, Debug)]
 pub struct SpotifyData {
     pub devices: Option<Vec<Device>>,
-    pub page_saved_tracks: Vec<Page<SavedTrack>>,
+    pub saved_tracks: Vec<SavedTrack>,
     pub recent_play_histories: Option<Vec<PlayHistory>>,
     pub current_playback: Option<FullPlayingContext>,
     pub selected_device: Option<Device>,
+    pub save_state_track_ids: HashMap<String, SaveState>,
 }
 
 impl SpotifyData {
     pub fn new() -> SpotifyData {
         SpotifyData {
             devices: None,
-            page_saved_tracks: Vec::new(),
+            saved_tracks: Vec::new(),
             recent_play_histories: None,
             current_playback: None,
             selected_device: None,
+            save_state_track_ids: HashMap::new(),
         }
     }
 }
@@ -119,15 +133,71 @@ impl SpotermClient {
                 SpotifyAPIResult::CurrentPlayBack(current_playback) => {
                     self.spotify_data.current_playback = current_playback;
                 }
+                SpotifyAPIResult::CheckCurrentUserSavedTracks(saved_tracks) => {
+                    for (track_id, saved) in saved_tracks.iter() {
+                        if *saved {
+                            self.spotify_data
+                                .save_state_track_ids
+                                .insert(track_id.clone(), SaveState::SAVED);
+                        } else {
+                            self.spotify_data
+                                .save_state_track_ids
+                                .insert(track_id.clone(), SaveState::UNSAVED);
+                        }
+                    }
+                }
+                SpotifyAPIResult::SuccessAddCurrentUserSavedTracks(track_ids) => {
+                    for track_id in track_ids {
+                        self.spotify_data
+                            .save_state_track_ids
+                            .insert(track_id, SaveState::SAVED);
+                    }
+                    self.request_current_user_saved_tracks();
+                }
+                SpotifyAPIResult::SuccessDeleteCurrentUserSavedTracks(track_ids) => {
+                    self.spotify_data.saved_tracks.retain(|x| {
+                        let track_id = x.track.id.as_ref().unwrap();
+                        if track_ids.contains(track_id) {
+                            return false;
+                        }
+                        true
+                    });
+                }
                 SpotifyAPIResult::CurrentUserSavedTracks(page_saved_tracks) => {
-                    if page_saved_tracks.next.is_some() {
+                    let pre_track_ids: Vec<String> = self
+                        .spotify_data
+                        .saved_tracks
+                        .iter()
+                        .map(|x| x.track.id.clone().unwrap())
+                        .collect();
+                    self.spotify_data
+                        .saved_tracks
+                        .append(&mut page_saved_tracks.items.clone());
+                    //unique
+                    self.spotify_data
+                        .saved_tracks
+                        .sort_by_key(|x| x.track.id.clone());
+                    self.spotify_data
+                        .saved_tracks
+                        .dedup_by_key(|x| x.track.id.clone().unwrap_or("".to_string()));
+
+                    self.spotify_data.saved_tracks.sort_by_key(|x| x.added_at);
+                    self.spotify_data.saved_tracks.reverse();
+
+                    let new_track_ids: Vec<String> = self
+                        .spotify_data
+                        .saved_tracks
+                        .iter()
+                        .map(|x| x.track.id.clone().unwrap())
+                        .collect();
+                    if pre_track_ids != new_track_ids && page_saved_tracks.next.is_some() {
+                        log::info!("Request!!");
                         self.tx
                             .send(SpotifyAPIEvent::CurrentUserSavedTracks(Some(
                                 page_saved_tracks.offset + page_saved_tracks.limit,
                             )))
                             .unwrap();
                     }
-                    self.spotify_data.page_saved_tracks.push(page_saved_tracks);
                 }
                 _ => {}
             }
@@ -183,6 +253,40 @@ impl SpotermClient {
                 self.tx
                     .send(SpotifyAPIEvent::Shuffle(true, Some(device_id)))
                     .unwrap();
+            }
+        }
+    }
+    pub fn request_save_current_playback(&mut self) {
+        if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
+            if let Some(current_playback) = current_playback.item.as_ref() {
+                if let Some(track_id) = current_playback.id.as_ref() {
+                    //doesn't exist
+                    if let Some(save_state) = self.spotify_data.save_state_track_ids.get(track_id) {
+                        match save_state {
+                            SaveState::SAVED | SaveState::SAVING => {
+                                self.tx
+                                    .send(SpotifyAPIEvent::DeleteCurrentUserSavedTracks(vec![
+                                        track_id.clone(),
+                                    ]))
+                                    .unwrap();
+                                self.spotify_data
+                                    .save_state_track_ids
+                                    .insert(track_id.clone(), SaveState::UNSAVING);
+                            }
+                            SaveState::UNSAVED | SaveState::UNSAVING => {
+                                self.tx
+                                    .send(SpotifyAPIEvent::AddCurrentUserSavedTracks(vec![
+                                        track_id.clone(),
+                                    ]))
+                                    .unwrap();
+                                self.spotify_data
+                                    .save_state_track_ids
+                                    .insert(track_id.clone(), SaveState::SAVING);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
             }
         }
     }
@@ -250,7 +354,23 @@ impl SpotermClient {
                 .unwrap();
         }
     }
-
+    pub fn request_check_unknown_saved_tracks(&mut self) {
+        let mut unknown_track_ids = Vec::new();
+        for (id, state) in self.spotify_data.save_state_track_ids.iter_mut() {
+            match state {
+                SaveState::UNKNOWN => {
+                    unknown_track_ids.push(id.clone());
+                    *state = SaveState::CHECKING;
+                }
+                _ => {}
+            }
+        }
+        self.tx
+            .send(SpotifyAPIEvent::CheckCurrentUserSavedTracks(
+                unknown_track_ids,
+            ))
+            .unwrap();
+    }
     pub fn request_repeat(&self) {
         if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
             match current_playback.repeat_state {
@@ -282,14 +402,23 @@ impl SpotermClient {
         }
     }
 
-    pub fn player_items(&self) -> Vec<Text> {
+    pub fn player_items(&mut self) -> Vec<Text> {
         let mut items = vec![];
-        if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
-            if let Some(playing_track) = current_playback.item.as_ref() {
+        if let Some(current_playback) = self.spotify_data.current_playback.clone() {
+            if let Some(playing_track) = current_playback.item.clone() {
+                let track_id = playing_track.id.clone().unwrap_or("".to_string());
+                let like_track_icon = match self.save_state_track(track_id.clone()) {
+                    SaveState::SAVED | SaveState::SAVING => "❤",
+                    SaveState::UNSAVED | SaveState::UNSAVING => "♡",
+                    _ => "❓",
+                };
                 items.push(Text::styled(
                     format!(
-                        "🎵  Song: {} |🎤 Artist: {} | 💿 Album: {}",
-                        playing_track.name, playing_track.artists[0].name, playing_track.album.name
+                        "🎵  {} Song: {} |🎤 Artist: {} | 💿 Album: {}",
+                        like_track_icon,
+                        playing_track.name,
+                        playing_track.artists[0].name,
+                        playing_track.album.name
                     ),
                     Style::default().fg(Color::White),
                 ));
@@ -369,12 +498,21 @@ impl SpotermClient {
                 .unwrap();
         }
     }
-
+    fn save_state_track(&mut self, id: String) -> SaveState {
+        if let Some(state) = self.spotify_data.save_state_track_ids.get(&id) {
+            return state.clone();
+        }
+        self.spotify_data
+            .save_state_track_ids
+            .insert(id.clone(), UNKNOWN);
+        return SaveState::UNKNOWN;
+    }
     pub fn set_selected_device(&mut self) -> Result<(), failure::Error> {
         //skip
         if self.spotify_data.selected_device.is_some() || self.spotify_data.devices.is_none() {
             return Ok(());
         }
+
         let local_hostname = hostname::get_hostname().expect("can not get hostname");
         let devices = self.spotify_data.devices.clone().unwrap();
         for device in devices {

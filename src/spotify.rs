@@ -18,6 +18,9 @@ pub enum SpotifyAPIEvent {
     PreviousTrack(Option<String>),
     CurrentPlayBack,
     CurrentUserRecentlyPlayed,
+    DeleteCurrentUserSavedTracks(Vec<String>),
+    AddCurrentUserSavedTracks(Vec<String>),
+    CheckCurrentUserSavedTracks(Vec<String>),
     CurrentUserSavedTracks(Option<u32>), //offset
     StartPlayBack((Option<String>, Option<Vec<String>>)),
 }
@@ -26,8 +29,11 @@ pub enum SpotifyAPIResult {
     CurrentPlayBack(Option<spotify::model::context::FullPlayingContext>),
     CurrentUserPlayingTrack(Option<spotify::model::playing::Playing>),
     CurrentUserRecentlyPlayed(Vec<spotify::model::playing::PlayHistory>),
+    CheckCurrentUserSavedTracks(Vec<(String, bool)>),
     CurrentUserSavedTracks(Page<SavedTrack>),
     Device(Vec<spotify::model::device::Device>),
+    SuccessAddCurrentUserSavedTracks(Vec<String>),
+    SuccessDeleteCurrentUserSavedTracks(Vec<String>),
 }
 
 pub struct SpotifyService {
@@ -130,6 +136,15 @@ impl SpotifyService {
                 SpotifyAPIEvent::CurrentUserRecentlyPlayed => {
                     self.fetch_current_user_recently_played();
                 }
+                SpotifyAPIEvent::DeleteCurrentUserSavedTracks(track_ids) => {
+                    self.fetch_delete_current_user_saved_tracks(&track_ids);
+                }
+                SpotifyAPIEvent::AddCurrentUserSavedTracks(track_ids) => {
+                    self.fetch_add_current_user_saved_tracks(&track_ids);
+                }
+                SpotifyAPIEvent::CheckCurrentUserSavedTracks(track_ids) => {
+                    self.fetch_check_current_user_saved_tracks(&track_ids);
+                }
                 SpotifyAPIEvent::CurrentUserSavedTracks(offset) => {
                     self.fetch_current_user_saved_tracks(offset);
                 }
@@ -142,6 +157,22 @@ impl SpotifyService {
                 _ => {}
             }
         });
+        Ok(())
+    }
+    fn fetch_check_current_user_saved_tracks(
+        &self,
+        track_ids: &Vec<String>,
+    ) -> Result<(), failure::Error> {
+        let saved_tracks = self.client.current_user_saved_tracks_contains(track_ids)?;
+        let result: Vec<(String, bool)> = track_ids
+            .iter()
+            .zip(saved_tracks.iter())
+            .map(|(x, y)| (x.clone(), *y))
+            .collect();
+        self.api_result_tx
+            .clone()
+            .unwrap()
+            .send(SpotifyAPIResult::CheckCurrentUserSavedTracks(result))?;
         Ok(())
     }
     fn fetch_start_playback(
@@ -205,6 +236,27 @@ impl SpotifyService {
             .clone()
             .unwrap()
             .send(SpotifyAPIResult::Device(devices))?;
+        Ok(())
+    }
+    fn fetch_delete_current_user_saved_tracks(
+        &self,
+        track_ids: &Vec<String>,
+    ) -> Result<(), failure::Error> {
+        self.client
+            .current_user_saved_tracks_delete(track_ids.clone())?;
+        self.api_result_tx.clone().unwrap().send(
+            SpotifyAPIResult::SuccessDeleteCurrentUserSavedTracks(track_ids.clone()),
+        );
+        Ok(())
+    }
+    fn fetch_add_current_user_saved_tracks(
+        &self,
+        track_ids: &Vec<String>,
+    ) -> Result<(), failure::Error> {
+        self.client.current_user_saved_tracks_add(track_ids)?;
+        self.api_result_tx.clone().unwrap().send(
+            SpotifyAPIResult::SuccessAddCurrentUserSavedTracks(track_ids.clone()),
+        )?;
         Ok(())
     }
     fn fetch_current_user_saved_tracks(&self, offset: Option<u32>) -> Result<(), failure::Error> {

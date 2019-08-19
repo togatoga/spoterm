@@ -253,12 +253,7 @@ impl UI for LikedSongs {
             .unwrap();
     }
     fn set_data(&mut self, data: &SpotifyData) {
-        self.saved_tracks.clear();
-        for page_saved_track in data.page_saved_tracks.clone() {
-            for saved_track in page_saved_track.items {
-                self.saved_tracks.push(saved_track);
-            }
-        }
+        self.saved_tracks = data.saved_tracks.clone();
 
         if let Some(device) = data.selected_device.as_ref() {
             self.device_id = Some(device.clone().id);
