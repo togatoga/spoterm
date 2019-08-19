@@ -18,6 +18,7 @@ use rspotify::spotify::model::device::Device;
 use rspotify::spotify::model::playing::PlayHistory;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
+use rspotify::spotify::senum::RepeatState;
 use std::cmp;
 use std::thread;
 use tui::style::{Color, Style};
@@ -227,13 +228,29 @@ impl SpotermClient {
         }
     }
 
+    pub fn request_repeat(&self) {
+        if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
+            match current_playback.repeat_state {
+                RepeatState::Off => {
+                    self.tx.send(SpotifyAPIEvent::Repeat(RepeatState::Track, Some(current_playback.device.id.clone()))).unwrap();
+                }
+                RepeatState::Track => {
+                    self.tx.send(SpotifyAPIEvent::Repeat(RepeatState::Context, Some(current_playback.device.id.clone()))).unwrap();
+                }
+                RepeatState::Context => {
+                    self.tx.send(SpotifyAPIEvent::Repeat(RepeatState::Off, Some(current_playback.device.id.clone()))).unwrap();
+                }
+            }
+        }
+    }
+
     pub fn player_items(&self) -> Vec<Text> {
         let mut items = vec![];
         if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
             if let Some(playing_track) = current_playback.item.as_ref() {
                 items.push(Text::styled(
                     format!(
-                        "🎵 Song: {} |👩‍ 🎤 Artist: {} | 💿 Album: {}",
+                        "🎵 Song: {} |🎤 Artist: {} | 💿 Album: {}",
                         playing_track.name, playing_track.artists[0].name, playing_track.album.name
                     ),
                     Style::default().fg(Color::White),
@@ -252,7 +269,11 @@ impl SpotermClient {
                 } else {
                     "❌"
                 };
-
+                let repeat_state_icon = match current_playback.repeat_state {
+                    RepeatState::Context => "🔁 🎵",
+                    RepeatState::Track => "🔂 💿",
+                    _ => "❌",
+                };
                 let duration_sec = playing_track.duration_ms / 1000;
                 let duration = format!("{:02}:{:02}", duration_sec / 60, duration_sec % 60);
                 let progress_sec = current_playback.progress_ms.unwrap_or(0) / 1000;
@@ -260,8 +281,8 @@ impl SpotermClient {
 
                 items.push(Text::styled(
                     format!(
-                        "Progress: {} / {} | Playing: {}  | Shuffle: {}",
-                        progress, duration, playing_icon, shuffle_state_icon
+                        "Progress: {} / {} | Playing: {}  | Shuffle: {} | Repeat:  {}",
+                        progress, duration, playing_icon, shuffle_state_icon, repeat_state_icon
                     ),
                     Style::default(),
                 ));

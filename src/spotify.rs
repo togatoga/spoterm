@@ -3,6 +3,7 @@ extern crate rspotify;
 
 use self::rspotify::spotify::model::page::Page;
 use self::rspotify::spotify::model::track::SavedTrack;
+use self::rspotify::spotify::senum::RepeatState;
 use rspotify::spotify;
 use std::thread;
 
@@ -11,6 +12,7 @@ pub enum SpotifyAPIEvent {
     Pause(Option<String>),
     Device,
     Volume(u8, Option<String>),
+    Repeat(RepeatState, Option<String>),
     NextTrack(Option<String>),
     PreviousTrack(Option<String>),
     CurrentPlayBack,
@@ -112,6 +114,9 @@ impl SpotifyService {
                 SpotifyAPIEvent::Volume(volume_percent, device_id) => {
                     self.fetch_volume(volume_percent, device_id);
                 }
+                SpotifyAPIEvent::Repeat(state, device_id) => {
+                    self.fetch_repeat(state, device_id);
+                }
                 SpotifyAPIEvent::NextTrack(device_id) => {
                     self.fetch_next_track(device_id);
                 }
@@ -164,6 +169,10 @@ impl SpotifyService {
             .clone()
             .unwrap()
             .send(SpotifyAPIResult::CurrentUserPlayingTrack(playing_track))?;
+        Ok(())
+    }
+    fn fetch_repeat(&self, state: RepeatState, device_id: Option<String>) -> Result<(), failure::Error> {
+        self.client.repeat(state, device_id)?;
         Ok(())
     }
     fn fetch_volume(&self, volume_percent: u8, device_id: Option<String>) -> Result<(), failure::Error> {

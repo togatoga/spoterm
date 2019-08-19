@@ -130,6 +130,9 @@ fn main() -> Result<(), Box<std::error::Error>> {
                     spoterm.shuffle();
                     spoterm.request_current_playback();
                 }
+                Key::Char('r') => {
+                    spoterm.request_repeat();
+                }
                 Key::Char('>') => {
                     spoterm.request_next_track();
                     spoterm.request_current_playback();
