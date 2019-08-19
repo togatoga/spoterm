@@ -9,9 +9,9 @@
 - [ ] Artists
 - [ ] Play List
 ### Tasks
-- [ ] Repeat
+- [x] Repeat
 - [ ] Like
 - [ ] Seek
-- [ ] Next/Previous track
+- [x] Next/Previous track
 - [x] Volume Up/Down
 - [x] Pause/Unpause
