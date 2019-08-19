@@ -250,7 +250,7 @@ impl SpotermClient {
             if let Some(playing_track) = current_playback.item.as_ref() {
                 items.push(Text::styled(
                     format!(
-                        "🎵 Song: {} |🎤 Artist: {} | 💿 Album: {}",
+                        "🎵  Song: {} |🎤 Artist: {} | 💿 Album: {}",
                         playing_track.name, playing_track.artists[0].name, playing_track.album.name
                     ),
                     Style::default().fg(Color::White),
@@ -270,8 +270,8 @@ impl SpotermClient {
                     "❌"
                 };
                 let repeat_state_icon = match current_playback.repeat_state {
-                    RepeatState::Context => "🔁 🎵",
-                    RepeatState::Track => "🔂 💿",
+                    RepeatState::Context => "🔁 💿",
+                    RepeatState::Track => "🔂 🎵",
                     _ => "❌",
                 };
                 let duration_sec = playing_track.duration_ms / 1000;
@@ -281,7 +281,7 @@ impl SpotermClient {
 
                 items.push(Text::styled(
                     format!(
-                        "Progress: {} / {} | Playing: {}  | Shuffle: {} | Repeat:  {}",
+                        "    Progress: {} / {} | Playing: {}  | Shuffle: {} | Repeat:  {}",
                         progress, duration, playing_icon, shuffle_state_icon, repeat_state_icon
                     ),
                     Style::default(),
@@ -290,7 +290,7 @@ impl SpotermClient {
 
             items.push(Text::styled(
                 format!(
-                    "🔊 Volume: {} | 💻 Device Name: {}",
+                    "🔊  Volume: {} | 💻 Device: {}",
                     current_playback.device.volume_percent, current_playback.device.name
                 ),
                 Style::default(),
