@@ -138,7 +138,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
                     spoterm.request_current_playback();
                 }
                 Key::Char('<') => {
-                    spoterm.request_previous_track();
+                    spoterm.request_seek_to_zero_or_previous_track();
                     spoterm.request_current_playback();
                 }
                 Key::Char('\n') => {

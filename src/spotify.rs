@@ -13,6 +13,7 @@ pub enum SpotifyAPIEvent {
     Device,
     Volume(u8, Option<String>),
     Repeat(RepeatState, Option<String>),
+    SeekTrack(u32, Option<String>),
     NextTrack(Option<String>),
     PreviousTrack(Option<String>),
     CurrentPlayBack,
@@ -111,6 +112,9 @@ impl SpotifyService {
                 SpotifyAPIEvent::Device => {
                     self.fetch_device();
                 }
+                SpotifyAPIEvent::SeekTrack(progress_ms, device_id) => {
+                    self.fetch_seek_track(progress_ms, device_id);
+                }
                 SpotifyAPIEvent::Volume(volume_percent, device_id) => {
                     self.fetch_volume(volume_percent, device_id);
                 }
@@ -169,6 +173,14 @@ impl SpotifyService {
             .clone()
             .unwrap()
             .send(SpotifyAPIResult::CurrentUserPlayingTrack(playing_track))?;
+        Ok(())
+    }
+    fn fetch_seek_track(
+        &self,
+        progress_ms: u32,
+        device_id: Option<String>,
+    ) -> Result<(), failure::Error> {
+        self.client.seek_track(progress_ms, device_id)?;
         Ok(())
     }
     fn fetch_repeat(

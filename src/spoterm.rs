@@ -201,6 +201,20 @@ impl SpotermClient {
             .send(SpotifyAPIEvent::NextTrack(Some(device_id)))
             .unwrap();
     }
+    pub fn request_seek_to_zero_or_previous_track(&self) {
+        if let Some(device) = self.spotify_data.selected_device.as_ref() {
+            if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
+                let progress_ms = current_playback.progress_ms.unwrap_or(0);
+                if progress_ms <= 3000 {
+                    self.request_previous_track();
+                } else {
+                    self.tx
+                        .send(SpotifyAPIEvent::SeekTrack(0, Some(device.id.clone())))
+                        .unwrap();
+                }
+            }
+        }
+    }
     pub fn request_previous_track(&self) {
         if self.spotify_data.selected_device.is_none() {
             return;
