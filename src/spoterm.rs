@@ -118,6 +118,9 @@ impl SpotermClient {
                     self.spotify_data.current_playback = current_playback;
                 }
                 SpotifyAPIResult::CurrentUserSavedTracks(page_saved_tracks) => {
+                    if page_saved_tracks.next.is_some() {
+                        self.tx.send(SpotifyAPIEvent::CurrentUserSavedTracks(Some(page_saved_tracks.offset + page_saved_tracks.limit))).unwrap();
+                    }
                     self.spotify_data.page_saved_tracks.push(page_saved_tracks);
                 }
                 _ => {}

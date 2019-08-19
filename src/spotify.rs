@@ -14,7 +14,7 @@ pub enum SpotifyAPIEvent {
     PreviousTrack(Option<String>),
     CurrentPlayBack,
     CurrentUserRecentlyPlayed,
-    CurrentUserSavedTracks(Option<u32>),
+    CurrentUserSavedTracks(Option<u32>),//offset
     StartPlayBack((Option<String>, Option<Vec<String>>)),
 }
 
