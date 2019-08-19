@@ -120,6 +120,12 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 Key::Up | Key::Char('k') => {
                     content_ui.key_up();
                 }
+                Key::Char('+') => {
+                    spoterm.request_volume(true);
+                }
+                Key::Char('-') => {
+                    spoterm.request_volume(false);
+                }
                 Key::Char('S') => {
                     spoterm.shuffle();
                     spoterm.request_current_playback();
@@ -148,6 +154,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 spoterm.set_selected_device();
             }
             event::Event::APIUpdate => {
+                spoterm.request_device();
                 spoterm.request_current_playback();
                 spoterm.request_current_user_recently_played();
             }

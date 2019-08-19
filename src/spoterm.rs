@@ -18,6 +18,7 @@ use rspotify::spotify::model::device::Device;
 use rspotify::spotify::model::playing::PlayHistory;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::util::get_token;
+use std::cmp;
 use std::thread;
 use tui::style::{Color, Style};
 use tui::widgets::Text;
@@ -210,6 +211,22 @@ impl SpotermClient {
             .send(SpotifyAPIEvent::PreviousTrack(Some(device_id)))
             .unwrap();
     }
+    pub fn request_volume(&self, up: bool) {
+        if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
+            let mut next_volume = current_playback.device.volume_percent as u8;
+            if up {
+                next_volume = cmp::min(next_volume + 6, 100);
+            } else {
+                if next_volume >= 6 {
+                    next_volume -= 6;
+                } else {
+                    next_volume = 0;
+                }
+            }
+            self.tx.send(SpotifyAPIEvent::Volume(next_volume, Some(current_playback.device.id.clone()))).unwrap();
+        }
+    }
+
     pub fn player_items(&self) -> Vec<Text> {
         let mut items = vec![];
         if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {

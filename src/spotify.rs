@@ -10,6 +10,7 @@ pub enum SpotifyAPIEvent {
     Shuffle(bool, Option<String>),
     Pause(Option<String>),
     Device,
+    Volume(u8, Option<String>),
     NextTrack(Option<String>),
     PreviousTrack(Option<String>),
     CurrentPlayBack,
@@ -108,6 +109,9 @@ impl SpotifyService {
                 SpotifyAPIEvent::Device => {
                     self.fetch_device();
                 }
+                SpotifyAPIEvent::Volume(volume_percent, device_id) => {
+                    self.fetch_volume(volume_percent, device_id);
+                }
                 SpotifyAPIEvent::NextTrack(device_id) => {
                     self.fetch_next_track(device_id);
                 }
@@ -160,6 +164,10 @@ impl SpotifyService {
             .clone()
             .unwrap()
             .send(SpotifyAPIResult::CurrentUserPlayingTrack(playing_track))?;
+        Ok(())
+    }
+    fn fetch_volume(&self, volume_percent: u8, device_id: Option<String>) -> Result<(), failure::Error> {
+        self.client.volume(volume_percent, device_id)?;
         Ok(())
     }
     fn fetch_device(&self) -> Result<(), failure::Error> {
