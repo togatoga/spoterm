@@ -243,7 +243,7 @@ impl SpotermClient {
 
                 items.push(Text::styled(
                     format!(
-                        "Progress: {} / {} | Playing: {} | Shuffle: {}",
+                        "Progress: {} / {} | Playing: {}  | Shuffle: {}",
                         progress, duration, playing_icon, shuffle_state_icon
                     ),
                     Style::default(),
