@@ -17,7 +17,7 @@ pub enum SpotifyAPIEvent {
     PreviousTrack(Option<String>),
     CurrentPlayBack,
     CurrentUserRecentlyPlayed,
-    CurrentUserSavedTracks(Option<u32>),//offset
+    CurrentUserSavedTracks(Option<u32>), //offset
     StartPlayBack((Option<String>, Option<Vec<String>>)),
 }
 
@@ -171,11 +171,19 @@ impl SpotifyService {
             .send(SpotifyAPIResult::CurrentUserPlayingTrack(playing_track))?;
         Ok(())
     }
-    fn fetch_repeat(&self, state: RepeatState, device_id: Option<String>) -> Result<(), failure::Error> {
+    fn fetch_repeat(
+        &self,
+        state: RepeatState,
+        device_id: Option<String>,
+    ) -> Result<(), failure::Error> {
         self.client.repeat(state, device_id)?;
         Ok(())
     }
-    fn fetch_volume(&self, volume_percent: u8, device_id: Option<String>) -> Result<(), failure::Error> {
+    fn fetch_volume(
+        &self,
+        volume_percent: u8,
+        device_id: Option<String>,
+    ) -> Result<(), failure::Error> {
         self.client.volume(volume_percent, device_id)?;
         Ok(())
     }

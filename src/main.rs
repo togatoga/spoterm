@@ -165,7 +165,6 @@ fn main() -> Result<(), Box<std::error::Error>> {
         }
 
         terminal.draw(|mut f| {
-
             let size = f.size();
             let chunks = Layout::default()
                 .direction(Direction::Vertical)

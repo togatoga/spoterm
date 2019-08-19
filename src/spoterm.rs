@@ -17,8 +17,8 @@ use rspotify::spotify::client::Spotify;
 use rspotify::spotify::model::device::Device;
 use rspotify::spotify::model::playing::PlayHistory;
 use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
-use rspotify::spotify::util::get_token;
 use rspotify::spotify::senum::RepeatState;
+use rspotify::spotify::util::get_token;
 use std::cmp;
 use std::thread;
 use tui::style::{Color, Style};
@@ -121,7 +121,11 @@ impl SpotermClient {
                 }
                 SpotifyAPIResult::CurrentUserSavedTracks(page_saved_tracks) => {
                     if page_saved_tracks.next.is_some() {
-                        self.tx.send(SpotifyAPIEvent::CurrentUserSavedTracks(Some(page_saved_tracks.offset + page_saved_tracks.limit))).unwrap();
+                        self.tx
+                            .send(SpotifyAPIEvent::CurrentUserSavedTracks(Some(
+                                page_saved_tracks.offset + page_saved_tracks.limit,
+                            )))
+                            .unwrap();
                     }
                     self.spotify_data.page_saved_tracks.push(page_saved_tracks);
                 }
@@ -224,7 +228,12 @@ impl SpotermClient {
                     next_volume = 0;
                 }
             }
-            self.tx.send(SpotifyAPIEvent::Volume(next_volume, Some(current_playback.device.id.clone()))).unwrap();
+            self.tx
+                .send(SpotifyAPIEvent::Volume(
+                    next_volume,
+                    Some(current_playback.device.id.clone()),
+                ))
+                .unwrap();
         }
     }
 
@@ -232,13 +241,28 @@ impl SpotermClient {
         if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
             match current_playback.repeat_state {
                 RepeatState::Off => {
-                    self.tx.send(SpotifyAPIEvent::Repeat(RepeatState::Track, Some(current_playback.device.id.clone()))).unwrap();
+                    self.tx
+                        .send(SpotifyAPIEvent::Repeat(
+                            RepeatState::Track,
+                            Some(current_playback.device.id.clone()),
+                        ))
+                        .unwrap();
                 }
                 RepeatState::Track => {
-                    self.tx.send(SpotifyAPIEvent::Repeat(RepeatState::Context, Some(current_playback.device.id.clone()))).unwrap();
+                    self.tx
+                        .send(SpotifyAPIEvent::Repeat(
+                            RepeatState::Context,
+                            Some(current_playback.device.id.clone()),
+                        ))
+                        .unwrap();
                 }
                 RepeatState::Context => {
-                    self.tx.send(SpotifyAPIEvent::Repeat(RepeatState::Off, Some(current_playback.device.id.clone()))).unwrap();
+                    self.tx
+                        .send(SpotifyAPIEvent::Repeat(
+                            RepeatState::Off,
+                            Some(current_playback.device.id.clone()),
+                        ))
+                        .unwrap();
                 }
             }
         }
