@@ -163,7 +163,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 spoterm.request_device();
                 spoterm.request_current_playback();
                 spoterm.request_current_user_recently_played();
-                //spoterm.request_current_user_saved_tracks();
+                spoterm.request_current_user_saved_tracks();
                 spoterm.request_check_unknown_saved_tracks();
             }
             _ => {}
