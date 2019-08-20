@@ -197,8 +197,8 @@ impl LikedSongs {
                 tmp = saved_track.track.name.clone() + &whitespace;
             }
             items.push(format!(
-                "❤  {}{}{}",
-                saved_track.track.name, whitespace, saved_track.track.artists[0].name
+                "❤  {}{}{}       {}",
+                saved_track.track.name, whitespace, saved_track.track.artists[0].name, saved_track.track.album.name
             ));
         }
         items
