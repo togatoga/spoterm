@@ -10,7 +10,7 @@
 - [ ] Play List
 ### Tasks
 - [x] Repeat
-- [ ] Like
+- [x] Like
 - [ ] Seek
 - [x] Next/Previous track
 - [x] Volume Up/Down
