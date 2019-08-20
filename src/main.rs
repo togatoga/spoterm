@@ -120,7 +120,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 Key::Up | Key::Char('k') => {
                     content_ui.key_up();
                 }
-                Key::Char('F') => {
+                Key::Char('f') => {
                     spoterm.request_save_current_playback();
                 }
                 Key::Char('+') => {
