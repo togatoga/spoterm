@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Hitoshi Togasaki <hitoshi@soundhound.com>"]
 edition = "2018"
 
+license = "MIT"
+description = "The spotify terminal client"
+keywords = ["tui", "spotify"]
+
 [dependencies]
 tui = "0.5"
 termion = "1.5"
