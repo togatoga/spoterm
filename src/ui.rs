@@ -11,6 +11,7 @@ use termion::raw::RawTerminal;
 use tui;
 use tui::backend::TermionBackend;
 use tui::widgets::{Block, Borders, SelectableList, Tabs, Widget};
+use unicode_width;
 
 pub trait UI {
     fn key_down(&mut self);
@@ -178,28 +179,33 @@ impl LikedSongs {
             tx: tx,
         }
     }
-    fn items_from_saved_tracks(&self) -> Vec<String> {
-        let max_track_name_width = self
-            .saved_tracks
-            .iter()
-            .map(|x| unicode_width::UnicodeWidthStr::width(x.track.name.as_str()))
-            .max()
-            .unwrap_or(0)
-            + 15;
-
-        let mut items = vec![];
-
-        for saved_track in self.saved_tracks.iter() {
-            let mut whitespace: String = "".to_string();
-            let mut tmp = saved_track.track.name.clone() + &whitespace;
-            while unicode_width::UnicodeWidthStr::width(tmp.as_str()) < max_track_name_width {
-                whitespace += " ";
-                tmp = saved_track.track.name.clone() + &whitespace;
+    fn trim_text(text: &String, width_max_limit: usize) -> String {
+        let mut result = String::new();
+        text.chars().for_each(|x| {
+            let size = unicode_width::UnicodeWidthChar::width(x).unwrap_or_default();
+            let current_size = unicode_width::UnicodeWidthStr::width(result.as_str());
+            if current_size + size <= width_max_limit {
+                result.push(x.clone());
             }
-            items.push(format!(
-                "❤  {}{}{}       {}",
-                saved_track.track.name, whitespace, saved_track.track.artists[0].name, saved_track.track.album.name
-            ));
+        });
+        while unicode_width::UnicodeWidthStr::width(result.as_str()) < width_max_limit {
+            result.push(' ');
+        }
+        result
+    }
+    fn items_from_saved_tracks(&self) -> Vec<String> {
+        let mut items = vec![];
+        for saved_track in self.saved_tracks.iter() {
+            let track = LikedSongs::trim_text(&saved_track.track.name, 30);
+            let artist = LikedSongs::trim_text(&saved_track.track.artists.iter().map(|x| x.name.clone()).join(" "), 20);
+            let album = LikedSongs::trim_text(&saved_track.track.album.name, 20);
+
+            let total_sec = saved_track.track.duration_ms / 1000;
+            let duration = format!("{:02}:{:02}", total_sec / 60, total_sec % 60);
+            let added_at = saved_track.added_at.format("%Y-%m-%d %H:%M:%S").to_string();
+
+            let line = format!("❤   {}     {}     {}     {}     {}", track, artist, album, added_at, duration);
+            items.push(line);
         }
         items
     }
