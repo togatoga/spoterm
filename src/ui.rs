@@ -199,12 +199,12 @@ impl LikedSongs {
             let track = LikedSongs::trim_text(&saved_track.track.name, 30);
             let artist = LikedSongs::trim_text(&saved_track.track.artists.iter().map(|x| x.name.clone()).join(" "), 20);
             let album = LikedSongs::trim_text(&saved_track.track.album.name, 20);
-
+            let popularity = LikedSongs::trim_text(&format!("{}", saved_track.track.popularity), 3);
             let total_sec = saved_track.track.duration_ms / 1000;
             let duration = format!("{:02}:{:02}", total_sec / 60, total_sec % 60);
             let added_at = saved_track.added_at.format("%Y-%m-%d %H:%M:%S").to_string();
 
-            let line = format!("❤   {}     {}     {}     {}     {}", track, artist, album, added_at, duration);
+            let line = format!("❤   {}     {}     {}     {}     {}     {}", track, artist, album, duration, popularity, added_at);
             items.push(line);
         }
         items
