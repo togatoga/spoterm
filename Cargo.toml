@@ -11,7 +11,7 @@ keywords = ["tui", "spotify"]
 [dependencies]
 tui = "0.5"
 termion = "1.5"
-rspotify = "0.6.0"
+rspotify = "0.7.0"
 serde = "1.0.94"
 toml = "0.5.1"
 dirs = "1.0"
