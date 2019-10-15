@@ -246,7 +246,7 @@ impl SpotifyService {
             .current_user_saved_tracks_delete(&track_ids)?;
         self.api_result_tx.clone().unwrap().send(
             SpotifyAPIResult::SuccessDeleteCurrentUserSavedTracks(track_ids.clone()),
-        );
+        )?;
         Ok(())
     }
     fn fetch_add_current_user_saved_tracks(
@@ -272,7 +272,7 @@ impl SpotifyService {
         Ok(())
     }
     fn fetch_pause_playback(&self, device_id: Option<String>) -> Result<(), failure::Error> {
-        self.client.pause_playback(device_id);
+        self.client.pause_playback(device_id)?;
         Ok(())
     }
     fn fetch_previous_track(&self, device_id: Option<String>) -> Result<(), failure::Error> {
