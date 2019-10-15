@@ -183,7 +183,7 @@ impl SpotifyService {
         self.client.start_playback(device_id, None, uris, None, None)
     }
     fn fetch_current_user_recently_played(&self) -> Result<(), failure::Error> {
-        let items = self.client.clone().current_user_recently_played(50)?.items;
+        let items = self.client.current_user_recently_played(50)?.items;
         self.api_result_tx
             .clone()
             .unwrap()
