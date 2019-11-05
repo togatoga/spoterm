@@ -18,6 +18,7 @@ pub trait UI {
     fn key_up(&mut self);
     fn key_enter(&mut self);
     fn set_data(&mut self, data: &SpotifyData);
+    fn set_filter(&mut self, filter: String);
     fn render(
         &self,
         f: &mut tui::terminal::Frame<
@@ -31,11 +32,17 @@ pub trait UI {
 
 pub struct Contents {
     pub uis: Vec<Box<UI>>,
+    pub filter: String,
+    pub input_mode: bool,
 }
 
 impl Contents {
     pub fn new() -> Contents {
-        Contents { uis: vec![] }
+        Contents {
+            uis: vec![],
+            filter: String::default(),
+            input_mode: false,
+        }
     }
     pub fn ui<T: 'static + UI>(mut self, ui: T) -> Self {
         self.uis.push(Box::new(ui));
@@ -48,6 +55,7 @@ pub struct RecentPlayed {
     pub selected_id: Option<usize>,
     pub device_id: Option<String>,
     pub recent_play_histories: Option<Vec<PlayHistory>>,
+    pub filter: String,
     pub tx: crossbeam::channel::Sender<SpotifyAPIEvent>,
 }
 
@@ -101,6 +109,9 @@ impl UI for RecentPlayed {
             self.device_id = Some(device.clone().id);
         }
     }
+    fn set_filter(&mut self, filter: String) {
+        self.filter = filter;
+    }
     fn render(
         &self,
         f: &mut tui::terminal::Frame<
@@ -129,9 +140,11 @@ impl RecentPlayed {
             selected_id: None,
             device_id: None,
             recent_play_histories: None,
+            filter: String::default(),
             tx: tx,
         }
     }
+
     fn items_from_play_history(&self, play_histories: Option<Vec<PlayHistory>>) -> Vec<String> {
         if play_histories.is_none() {
             return vec![];
@@ -167,6 +180,7 @@ pub struct LikedSongs {
     pub selected_id: Option<usize>,
     pub device_id: Option<String>,
     pub saved_tracks: Vec<SavedTrack>,
+    pub filter: String,
     pub tx: crossbeam::channel::Sender<SpotifyAPIEvent>,
 }
 
@@ -176,6 +190,7 @@ impl LikedSongs {
             selected_id: None,
             device_id: None,
             saved_tracks: Vec::new(),
+            filter: String::default(),
             tx: tx,
         }
     }
@@ -193,9 +208,39 @@ impl LikedSongs {
         }
         result
     }
+    fn filter_saved_tracks(&self) -> Vec<&SavedTrack> {
+        let saved_tracks: Vec<&SavedTrack> = self
+            .saved_tracks
+            .iter()
+            .filter(|&save_track| {
+                if self.filter == "" {
+                    true
+                } else {
+                    if save_track.track.name.contains(&self.filter) {
+                        return true;
+                    }
+                    if save_track.track.album.name.contains(&self.filter) {
+                        return true;
+                    }
+                    let artist = save_track
+                        .track
+                        .artists
+                        .iter()
+                        .map(|x| x.name.clone())
+                        .join(" ");
+                    if artist.contains(&self.filter) {
+                        return true;
+                    }
+                    false
+                }
+            })
+            .collect();
+        saved_tracks
+    }
     fn items_from_saved_tracks(&self) -> Vec<String> {
         let mut items = vec![];
-        for saved_track in self.saved_tracks.iter() {
+
+        for saved_track in self.filter_saved_tracks().iter() {
             let track = LikedSongs::trim_text(&saved_track.track.name, 30);
             let artist = LikedSongs::trim_text(
                 &saved_track
@@ -224,7 +269,7 @@ impl LikedSongs {
 
 impl UI for LikedSongs {
     fn key_down(&mut self) {
-        let max_track_size = self.saved_tracks.len();
+        let max_track_size = self.filter_saved_tracks().len();
         if let Some(selected) = self.selected_id {
             if selected + 1 < max_track_size {
                 self.selected_id = Some(selected + 1);
@@ -241,18 +286,18 @@ impl UI for LikedSongs {
             if selected > 0 {
                 self.selected_id = Some(selected - 1);
             } else {
-                self.selected_id = Some(self.saved_tracks.len() - 1);
+                self.selected_id = Some(self.filter_saved_tracks().len() - 1);
             }
         } else {
             self.selected_id = Some(0);
         }
     }
     fn key_enter(&mut self) {
-        if self.selected_id.is_none() || self.saved_tracks.is_empty() {
+        if self.selected_id.is_none() || self.filter_saved_tracks().is_empty() {
             return;
         }
         let selected_id = self.selected_id.unwrap();
-        let saved_tracks = self.saved_tracks.clone();
+        let saved_tracks = self.filter_saved_tracks().clone();
 
         let mut uris = vec![];
 
@@ -275,6 +320,9 @@ impl UI for LikedSongs {
         if let Some(device) = data.selected_device.as_ref() {
             self.device_id = Some(device.clone().id);
         }
+    }
+    fn set_filter(&mut self, filter: String) {
+        self.filter = filter;
     }
     fn render(
         &self,

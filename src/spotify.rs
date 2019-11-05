@@ -180,7 +180,8 @@ impl SpotifyService {
         device_id: Option<String>,
         uris: Option<Vec<String>>,
     ) -> Result<(), failure::Error> {
-        self.client.start_playback(device_id, None, uris, None, None)
+        self.client
+            .start_playback(device_id, None, uris, None, None)
     }
     fn fetch_current_user_recently_played(&self) -> Result<(), failure::Error> {
         let items = self.client.current_user_recently_played(50)?.items;
@@ -242,8 +243,7 @@ impl SpotifyService {
         &self,
         track_ids: &Vec<String>,
     ) -> Result<(), failure::Error> {
-        self.client
-            .current_user_saved_tracks_delete(&track_ids)?;
+        self.client.current_user_saved_tracks_delete(&track_ids)?;
         self.api_result_tx.clone().unwrap().send(
             SpotifyAPIResult::SuccessDeleteCurrentUserSavedTracks(track_ids.clone()),
         )?;

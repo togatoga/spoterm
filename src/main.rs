@@ -19,7 +19,7 @@ use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Style};
-use tui::widgets::{Block, Borders, List, SelectableList, Tabs, Text, Widget};
+use tui::widgets::{Block, Borders, List, Paragraph, SelectableList, Tabs, Text, Widget};
 use tui::Terminal;
 
 use log::LevelFilter;
@@ -105,70 +105,103 @@ fn main() -> Result<(), Box<std::error::Error>> {
     loop {
         let content_ui = &mut spoterm.contents.uis[spoterm.selected_menu_tab_id];
         content_ui.set_data(&spoterm.spotify_data);
-        match event_handler.next()? {
-            event::Event::KeyInput(key) => match key {
-                Key::Char('q') => {
-                    break;
+        content_ui.set_filter(spoterm.contents.filter.clone());
+        if spoterm.contents.input_mode {
+            match event_handler.next()? {
+                event::Event::KeyInput(key) => match key {
+                    Key::Char('\n') => {
+                        spoterm.contents.input_mode = false;
+                    }
+                    Key::Char(c) => {
+                        spoterm.contents.filter.push(c);
+                    }
+                    Key::Backspace => {
+                        spoterm.contents.filter.pop();
+                    }
+                    _ => {}
+                },
+                event::Event::Tick => {
+                    spoterm.fetch_api_result();
+                    spoterm.set_selected_device();
                 }
-                Key::Char('p') | Key::Char(' ') => {
-                    spoterm.pause();
+                event::Event::APIUpdate => {
+                    spoterm.request_device();
                     spoterm.request_current_playback();
-                }
-                Key::Down | Key::Char('j') => {
-                    content_ui.key_down();
-                }
-                Key::Up | Key::Char('k') => {
-                    content_ui.key_up();
-                }
-                Key::Char('f') => {
-                    spoterm.request_save_current_playback();
-                }
-                Key::Char('+') => {
-                    spoterm.request_volume(true);
-                }
-                Key::Char('-') => {
-                    spoterm.request_volume(false);
-                }
-                Key::Char('S') => {
-                    spoterm.shuffle();
-                    spoterm.request_current_playback();
-                }
-                Key::Char('r') => {
-                    spoterm.request_repeat();
-                }
-                Key::Char('>') => {
-                    spoterm.request_next_track();
-                    spoterm.request_current_playback();
-                }
-                Key::Char('<') => {
-                    spoterm.request_seek_to_zero_or_previous_track();
-                    spoterm.request_current_playback();
-                }
-                Key::Char('\n') => {
-                    content_ui.key_enter();
-                }
-                Key::Right | Key::Char('l') => {
-                    spoterm.move_to_next_menu_tab();
-                }
-                Key::Left | Key::Char('h') => {
-                    spoterm.move_to_previous_menu_tab();
+                    spoterm.request_current_user_recently_played();
+                    spoterm.request_current_user_saved_tracks();
+                    spoterm.request_check_unknown_saved_tracks();
                 }
                 _ => {}
-            },
-            event::Event::Tick => {
-                spoterm.fetch_api_result();
-                spoterm.set_selected_device();
             }
-            event::Event::APIUpdate => {
-                spoterm.request_device();
-                spoterm.request_current_playback();
-                spoterm.request_current_user_recently_played();
-                spoterm.request_current_user_saved_tracks();
-                spoterm.request_check_unknown_saved_tracks();
+        } else {
+            match event_handler.next()? {
+                event::Event::KeyInput(key) => match key {
+                    Key::Char('q') => {
+                        break;
+                    }
+                    Key::Char('p') | Key::Char(' ') => {
+                        spoterm.pause();
+                        spoterm.request_current_playback();
+                    }
+                    Key::Char('/') => {
+                        spoterm.contents.input_mode = true;
+                    }
+                    Key::Down | Key::Char('j') => {
+                        content_ui.key_down();
+                    }
+                    Key::Up | Key::Char('k') => {
+                        content_ui.key_up();
+                    }
+                    Key::Char('f') => {
+                        spoterm.request_save_current_playback();
+                    }
+                    Key::Char('+') => {
+                        spoterm.request_volume(true);
+                    }
+                    Key::Char('-') => {
+                        spoterm.request_volume(false);
+                    }
+                    Key::Char('S') => {
+                        spoterm.shuffle();
+                        spoterm.request_current_playback();
+                    }
+                    Key::Char('r') => {
+                        spoterm.request_repeat();
+                    }
+                    Key::Char('>') => {
+                        spoterm.request_next_track();
+                        spoterm.request_current_playback();
+                    }
+                    Key::Char('<') => {
+                        spoterm.request_seek_to_zero_or_previous_track();
+                        spoterm.request_current_playback();
+                    }
+                    Key::Char('\n') => {
+                        content_ui.key_enter();
+                    }
+                    Key::Right | Key::Char('l') => {
+                        spoterm.move_to_next_menu_tab();
+                    }
+                    Key::Left | Key::Char('h') => {
+                        spoterm.move_to_previous_menu_tab();
+                    }
+                    _ => {}
+                },
+                event::Event::Tick => {
+                    spoterm.fetch_api_result();
+                    spoterm.set_selected_device();
+                }
+                event::Event::APIUpdate => {
+                    spoterm.request_device();
+                    spoterm.request_current_playback();
+                    spoterm.request_current_user_recently_played();
+                    spoterm.request_current_user_saved_tracks();
+                    spoterm.request_check_unknown_saved_tracks();
+                }
+                _ => {}
             }
-            _ => {}
         }
-
+        let filter = spoterm.contents.filter.clone();
         terminal.draw(|mut f| {
             let size = f.size();
             let chunks = Layout::default()
@@ -178,7 +211,8 @@ fn main() -> Result<(), Box<std::error::Error>> {
                     [
                         Constraint::Length(3),
                         Constraint::Length(5),
-                        Constraint::Min(0),
+                        Constraint::Length(3),
+                        Constraint::Length(3),
                     ]
                     .as_ref(),
                 )
@@ -191,12 +225,21 @@ fn main() -> Result<(), Box<std::error::Error>> {
                 .style(Style::default().fg(Color::Cyan))
                 .highlight_style(Style::default().fg(Color::Red))
                 .render(&mut f, chunks[0]);
-
             List::new(spoterm.player_items().into_iter())
                 .block(Block::default().borders(Borders::ALL).title("Player"))
                 .render(&mut f, chunks[1]);
 
-            spoterm.contents.uis[spoterm.selected_menu_tab_id].render(&mut f, chunks[2]);
+            let filter_title = if spoterm.contents.input_mode {
+                "Filter(Entering.... Quit: Enter)"
+            } else {
+                "Filter(Filter Mode: /)"
+            };
+            Paragraph::new([Text::raw(filter)].iter())
+                .style((Style::default().fg(Color::White)))
+                .block(Block::default().borders(Borders::ALL).title(filter_title))
+                .render(&mut f, chunks[2]);
+
+            spoterm.contents.uis[spoterm.selected_menu_tab_id].render(&mut f, chunks[3]);
         });
     }
     Ok(())
