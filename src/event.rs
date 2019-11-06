@@ -32,9 +32,6 @@ impl EventHandler {
                             if let Err(_) = tx.send(Event::KeyInput(key)) {
                                 return;
                             }
-                            if key == Key::Char('q') {
-                                return;
-                            }
                         }
                         Err(_) => {}
                     }
