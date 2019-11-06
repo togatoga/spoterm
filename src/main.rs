@@ -109,7 +109,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
         if spoterm.contents.input_mode {
             match event_handler.next()? {
                 event::Event::KeyInput(key) => match key {
-                    Key::Char('\n') => {
+                    Key::Char('\n') | Key::Esc => {
                         spoterm.contents.input_mode = false;
                     }
                     Key::Char(c) => {
