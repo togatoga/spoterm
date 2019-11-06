@@ -209,6 +209,7 @@ impl LikedSongs {
         result
     }
     fn filter_saved_tracks(&self) -> Vec<&SavedTrack> {
+        let filter = self.filter.to_ascii_lowercase();
         let saved_tracks: Vec<&SavedTrack> = self
             .saved_tracks
             .iter()
@@ -216,19 +217,21 @@ impl LikedSongs {
                 if self.filter == "" {
                     true
                 } else {
-                    if save_track.track.name.contains(&self.filter) {
+                    let lower_track_name = save_track.track.name.to_ascii_lowercase();
+                    if lower_track_name.contains(&filter) {
                         return true;
                     }
-                    if save_track.track.album.name.contains(&self.filter) {
+                    let lower_album_name = save_track.track.album.name.to_ascii_lowercase();
+                    if lower_album_name.contains(&filter) {
                         return true;
                     }
-                    let artist = save_track
+                    let lower_artist = save_track
                         .track
                         .artists
                         .iter()
-                        .map(|x| x.name.clone())
+                        .map(|x| x.name.clone().to_ascii_lowercase())
                         .join(" ");
-                    if artist.contains(&self.filter) {
+                    if lower_artist.contains(&filter) {
                         return true;
                     }
                     false
