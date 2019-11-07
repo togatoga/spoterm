@@ -60,10 +60,10 @@ impl EventHandler {
         };
 
         EventHandler {
-            rx: rx,
-            input_handle: input_handle,
-            tick_handle: tick_handle,
-            api_update_handle: api_update_handle,
+            rx,
+            input_handle,
+            tick_handle,
+            api_update_handle,
         }
     }
     pub fn next(&self) -> Result<Event, mpsc::RecvError> {

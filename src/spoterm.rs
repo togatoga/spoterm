@@ -6,9 +6,8 @@ extern crate unicode_width;
 use itertools::Itertools;
 
 use self::rspotify::spotify::model::playing::Playing;
-use super::ui;
 use crate::spotify::{SpotifyAPIEvent, SpotifyAPIResult, SpotifyService};
-use crate::ui::{Contents, LikedSongs, RecentPlayed, UI};
+use crate::ui::{Contents, LikedSongs, RecentPlayed};
 
 use self::rspotify::spotify::model::context::FullPlayingContext;
 use self::rspotify::spotify::model::page::Page;
