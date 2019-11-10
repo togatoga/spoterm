@@ -28,7 +28,7 @@ pub trait UI {
 }
 
 pub struct Contents {
-    pub uis: Vec<Box<UI>>,
+    pub uis: Vec<Box<dyn UI>>,
     pub filter: String,
     pub input_mode: bool,
 }
