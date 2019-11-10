@@ -1,16 +1,13 @@
 use crate::spoterm::SpotifyData;
 use crate::spotify::SpotifyAPIEvent;
-use core::borrow::BorrowMut;
 use itertools::Itertools;
-use rspotify::spotify::client::Spotify;
-use rspotify::spotify::model::playing::{PlayHistory, Playing};
+use rspotify::spotify::model::playing::PlayHistory;
 use rspotify::spotify::model::track::SavedTrack;
 use termion;
-use termion::input::{MouseTerminal, TermRead};
+use termion::input::MouseTerminal;
 use termion::raw::RawTerminal;
 use tui;
-use tui::backend::TermionBackend;
-use tui::widgets::{Block, Borders, SelectableList, Tabs, Widget};
+use tui::widgets::{Block, Borders, SelectableList, Widget};
 use unicode_width;
 
 pub trait UI {

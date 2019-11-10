@@ -16,7 +16,6 @@ use rspotify::spotify::model::playing::PlayHistory;
 use rspotify::spotify::senum::RepeatState;
 use std::cmp;
 use std::collections::HashMap;
-use std::thread;
 use tui::style::{Color, Style};
 use tui::widgets::Text;
 
