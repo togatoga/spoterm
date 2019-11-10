@@ -3,22 +3,17 @@ extern crate hostname;
 extern crate itertools;
 extern crate rspotify;
 extern crate unicode_width;
-use itertools::Itertools;
 
-use self::rspotify::spotify::model::playing::Playing;
-use crate::spotify::{SpotifyAPIEvent, SpotifyAPIResult, SpotifyService};
 use crate::ui::{Contents, LikedSongs, RecentPlayed};
+use crate::spotify::{SpotifyAPIEvent, SpotifyAPIResult, SpotifyService};
 
 use self::rspotify::spotify::model::context::FullPlayingContext;
-use self::rspotify::spotify::model::page::Page;
 use self::rspotify::spotify::model::track::SavedTrack;
-use crate::spoterm::SaveState::{CHECKING, SAVED, UNKNOWN};
-use rspotify::spotify::client::Spotify;
+use crate::spoterm::SaveState::UNKNOWN;
+
 use rspotify::spotify::model::device::Device;
 use rspotify::spotify::model::playing::PlayHistory;
-use rspotify::spotify::oauth2::{SpotifyClientCredentials, SpotifyOAuth};
 use rspotify::spotify::senum::RepeatState;
-use rspotify::spotify::util::get_token;
 use std::cmp;
 use std::collections::HashMap;
 use std::thread;
@@ -117,7 +112,7 @@ impl SpotermClient {
                 //"Artists".to_string(),
             ],
             selected_menu_tab_id: 0,
-            contents: contents,
+            contents
         }
     }
     pub fn fetch_api_result(&mut self) {

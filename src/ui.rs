@@ -141,7 +141,7 @@ impl RecentPlayed {
             device_id: None,
             recent_play_histories: None,
             filter: String::default(),
-            tx: tx,
+            tx,
         }
     }
 
@@ -191,7 +191,7 @@ impl LikedSongs {
             device_id: None,
             saved_tracks: Vec::new(),
             filter: String::default(),
-            tx: tx,
+            tx,
         }
     }
     fn trim_text(text: &String, width_max_limit: usize) -> String {
