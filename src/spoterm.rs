@@ -4,8 +4,8 @@ extern crate itertools;
 extern crate rspotify;
 extern crate unicode_width;
 
-use crate::ui::{Contents, LikedSongs, RecentPlayed};
 use crate::spotify::{SpotifyAPIEvent, SpotifyAPIResult, SpotifyService};
+use crate::ui::{Contents, LikedSongs, RecentPlayed};
 
 use self::rspotify::spotify::model::context::FullPlayingContext;
 use self::rspotify::spotify::model::track::SavedTrack;
@@ -64,7 +64,7 @@ pub struct SpotermClient {
 }
 //Authorization Scopes
 //https://developer.spotify.com/documentation/general/guides/scopes/
-const SCOPES: [&'static str; 18] = [
+const SCOPES: [&str; 18] = [
     //Listening History
     "user-top-read",
     "user-read-recently-played",
@@ -111,7 +111,7 @@ impl SpotermClient {
                 //"Artists".to_string(),
             ],
             selected_menu_tab_id: 0,
-            contents
+            contents,
         }
     }
     pub fn fetch_api_result(&mut self) {
@@ -456,7 +456,7 @@ impl SpotermClient {
                 Style::default(),
             ));
         }
-        return items;
+        items
     }
     pub fn pause(&self) {
         if self.spotify_data.selected_device.is_none() {
