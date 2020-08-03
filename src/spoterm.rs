@@ -7,13 +7,13 @@ extern crate unicode_width;
 use crate::spotify::{SpotifyAPIEvent, SpotifyAPIResult, SpotifyService};
 use crate::ui::{Contents, LikedSongs, RecentPlayed};
 
-use self::rspotify::spotify::model::context::FullPlayingContext;
-use self::rspotify::spotify::model::track::SavedTrack;
+use self::rspotify::model::context::CurrentlyPlaybackContext;
+use self::rspotify::model::track::SavedTrack;
 use crate::spoterm::SaveState::UNKNOWN;
 
-use rspotify::spotify::model::device::Device;
-use rspotify::spotify::model::playing::PlayHistory;
-use rspotify::spotify::senum::RepeatState;
+use rspotify::model::device::Device;
+use rspotify::model::playing::PlayHistory;
+use rspotify::senum::RepeatState;
 use std::cmp;
 use std::collections::HashMap;
 use tui::style::{Color, Style};
@@ -34,7 +34,7 @@ pub struct SpotifyData {
     pub devices: Option<Vec<Device>>,
     pub saved_tracks: Vec<SavedTrack>,
     pub recent_play_histories: Option<Vec<PlayHistory>>,
-    pub current_playback: Option<FullPlayingContext>,
+    pub current_playback: Option<CurrentlyPlaybackContext>,
     pub selected_device: Option<Device>,
     pub save_state_track_ids: HashMap<String, SaveState>,
 }
@@ -62,45 +62,16 @@ pub struct SpotermClient {
     pub selected_menu_tab_id: usize,
     pub contents: Contents,
 }
-//Authorization Scopes
-//https://developer.spotify.com/documentation/general/guides/scopes/
-const SCOPES: [&str; 18] = [
-    //Listening History
-    "user-top-read",
-    "user-read-recently-played",
-    //Spotify Connect
-    "user-read-playback-state",
-    "user-read-currently-playing",
-    "user-modify-playback-state",
-    //Library
-    "user-library-modify",
-    "user-library-read",
-    //Playback
-    "streaming",
-    "app-remote-control",
-    "user-read-private",
-    "user-read-birthdate",
-    "user-read-email",
-    //Follow
-    "user-follow-modify",
-    "user-follow-read",
-    //PlayLists
-    "playlist-modify-public",
-    "playlist-read-collaborative",
-    "playlist-read-private",
-    "playlist-modify-private",
-];
 
 impl SpotermClient {
-    pub fn new(client_id: String, client_secret: String) -> SpotermClient {
-        let (tx, rx) = crossbeam::channel::unbounded();
-        let spotify = SpotifyService::new(client_id, client_secret).api_result_tx(tx.clone());
-
-        let api_event_tx = spotify.api_event_tx.clone();
+    pub fn new(
+        rx: crossbeam::channel::Receiver<SpotifyAPIResult>,
+        api_event_tx: crossbeam::channel::Sender<SpotifyAPIEvent>,
+    ) -> SpotermClient {
         let contents = Contents::new()
             .ui(RecentPlayed::new(api_event_tx.clone()))
             .ui(LikedSongs::new(api_event_tx.clone()));
-        spotify.run();
+
         SpotermClient {
             tx: api_event_tx.clone(),
             rx: rx.clone(),
@@ -114,6 +85,7 @@ impl SpotermClient {
             contents,
         }
     }
+
     pub fn fetch_api_result(&mut self) {
         for result in self.rx.try_recv() {
             match result {
@@ -252,31 +224,36 @@ impl SpotermClient {
     pub fn request_save_current_playback(&mut self) {
         if let Some(current_playback) = self.spotify_data.current_playback.as_ref() {
             if let Some(current_playback) = current_playback.item.as_ref() {
-                if let Some(track_id) = current_playback.id.as_ref() {
-                    //doesn't exist
-                    if let Some(save_state) = self.spotify_data.save_state_track_ids.get(track_id) {
-                        match save_state {
-                            SaveState::SAVED | SaveState::SAVING => {
-                                self.tx
-                                    .send(SpotifyAPIEvent::DeleteCurrentUserSavedTracks(vec![
-                                        track_id.clone(),
-                                    ]))
-                                    .unwrap();
-                                self.spotify_data
-                                    .save_state_track_ids
-                                    .insert(track_id.clone(), SaveState::UNSAVING);
+                if let rspotify::model::PlayingItem::Track(playing_track) = current_playback {
+                    let track_id = playing_track.id.as_ref();
+                    if let Some(track_id) = track_id {
+                        //doesn't exist
+                        if let Some(save_state) =
+                            self.spotify_data.save_state_track_ids.get(track_id)
+                        {
+                            match save_state {
+                                SaveState::SAVED | SaveState::SAVING => {
+                                    self.tx
+                                        .send(SpotifyAPIEvent::DeleteCurrentUserSavedTracks(vec![
+                                            track_id.clone(),
+                                        ]))
+                                        .unwrap();
+                                    self.spotify_data
+                                        .save_state_track_ids
+                                        .insert(track_id.clone(), SaveState::UNSAVING);
+                                }
+                                SaveState::UNSAVED | SaveState::UNSAVING => {
+                                    self.tx
+                                        .send(SpotifyAPIEvent::AddCurrentUserSavedTracks(vec![
+                                            track_id.clone(),
+                                        ]))
+                                        .unwrap();
+                                    self.spotify_data
+                                        .save_state_track_ids
+                                        .insert(track_id.clone(), SaveState::SAVING);
+                                }
+                                _ => {}
                             }
-                            SaveState::UNSAVED | SaveState::UNSAVING => {
-                                self.tx
-                                    .send(SpotifyAPIEvent::AddCurrentUserSavedTracks(vec![
-                                        track_id.clone(),
-                                    ]))
-                                    .unwrap();
-                                self.spotify_data
-                                    .save_state_track_ids
-                                    .insert(track_id.clone(), SaveState::SAVING);
-                            }
-                            _ => {}
                         }
                     }
                 }
@@ -399,53 +376,56 @@ impl SpotermClient {
         let mut items = vec![];
         if let Some(current_playback) = self.spotify_data.current_playback.clone() {
             if let Some(playing_track) = current_playback.item.clone() {
-                let track_id = playing_track.id.clone().unwrap_or("".to_string());
-                let like_track_icon = match self.save_state_track(track_id.clone()) {
-                    SaveState::SAVED | SaveState::SAVING => "❤",
-                    SaveState::UNSAVED | SaveState::UNSAVING => "♡",
-                    _ => "❓",
-                };
-                items.push(Text::styled(
-                    format!(
-                        "🎵  {} Song: {} |🎤 Artist: {} | 💿 Album: {}",
-                        like_track_icon,
-                        playing_track.name,
-                        playing_track.artists[0].name,
-                        playing_track.album.name
-                    ),
-                    Style::default().fg(Color::White),
-                ));
-                //Status
-                let playing_icon = if current_playback.is_playing {
-                    //headphone
-                    "🎧"
-                } else {
-                    //stop
-                    "⏹️"
-                };
-                let shuffle_state_icon = if current_playback.shuffle_state {
-                    //shuffle
-                    "🔀"
-                } else {
-                    "❌"
-                };
-                let repeat_state_icon = match current_playback.repeat_state {
-                    RepeatState::Context => "🔁 💿",
-                    RepeatState::Track => "🔂 🎵",
-                    _ => "❌",
-                };
-                let duration_sec = playing_track.duration_ms / 1000;
-                let duration = format!("{:02}:{:02}", duration_sec / 60, duration_sec % 60);
-                let progress_sec = current_playback.progress_ms.unwrap_or(0) / 1000;
-                let progress = format!("{:02}:{:02}", progress_sec / 60, progress_sec % 60);
+                if let rspotify::model::PlayingItem::Track(playing_track) = playing_track {
+                    let track_id = playing_track.id.unwrap_or("".to_string());
+                    let like_track_icon = match self.save_state_track(track_id.clone()) {
+                        SaveState::SAVED | SaveState::SAVING => "❤",
+                        SaveState::UNSAVED | SaveState::UNSAVING => "♡",
+                        _ => "❓",
+                    };
 
-                items.push(Text::styled(
-                    format!(
-                        "    Progress: {} / {} | Playing: {}  | Shuffle: {} | Repeat:  {}",
-                        progress, duration, playing_icon, shuffle_state_icon, repeat_state_icon
-                    ),
-                    Style::default(),
-                ));
+                    items.push(Text::styled(
+                        format!(
+                            "🎵  {} Song: {} |🎤 Artist: {} | 💿 Album: {}",
+                            like_track_icon,
+                            playing_track.name,
+                            playing_track.artists[0].name,
+                            playing_track.album.name
+                        ),
+                        Style::default().fg(Color::White),
+                    ));
+                    //Status
+                    let playing_icon = if current_playback.is_playing {
+                        //headphone
+                        "🎧"
+                    } else {
+                        //stop
+                        "⏹️"
+                    };
+                    let shuffle_state_icon = if current_playback.shuffle_state {
+                        //shuffle
+                        "🔀"
+                    } else {
+                        "❌"
+                    };
+                    let repeat_state_icon = match current_playback.repeat_state {
+                        RepeatState::Context => "🔁 💿",
+                        RepeatState::Track => "🔂 🎵",
+                        _ => "❌",
+                    };
+                    let duration_sec = playing_track.duration_ms / 1000;
+                    let duration = format!("{:02}:{:02}", duration_sec / 60, duration_sec % 60);
+                    let progress_sec = current_playback.progress_ms.unwrap_or(0) / 1000;
+                    let progress = format!("{:02}:{:02}", progress_sec / 60, progress_sec % 60);
+
+                    items.push(Text::styled(
+                        format!(
+                            "    Progress: {} / {} | Playing: {}  | Shuffle: {} | Repeat:  {}",
+                            progress, duration, playing_icon, shuffle_state_icon, repeat_state_icon
+                        ),
+                        Style::default(),
+                    ));
+                }
             }
 
             items.push(Text::styled(

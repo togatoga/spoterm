@@ -1,8 +1,8 @@
 use crate::spoterm::SpotifyData;
 use crate::spotify::SpotifyAPIEvent;
 use itertools::Itertools;
-use rspotify::spotify::model::playing::PlayHistory;
-use rspotify::spotify::model::track::SavedTrack;
+use rspotify::model::playing::PlayHistory;
+use rspotify::model::track::SavedTrack;
 use termion;
 use termion::input::MouseTerminal;
 use termion::raw::RawTerminal;

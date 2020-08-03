@@ -11,8 +11,9 @@ keywords = ["tui", "spotify"]
 [dependencies]
 tui = "0.5"
 termion = "1.5"
-rspotify = "0.7.0"
-serde = "1.0.94"
+rspotify = "0.10.0"
+serde = {version = "1.0.94", features = ["derive"] }
+tokio = { version = "0.2", features = ["full"] }
 toml = "0.5.1"
 dirs = "1.0"
 failure = "0.1.5"
@@ -22,4 +23,4 @@ rpassword = "3.0.2"
 hostname = "^0.1"
 itertools = "0.8"
 unicode-width = "0.1"
-crossbeam = "0.7"
+crossbeam = "0.7.3"

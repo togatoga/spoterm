@@ -30,7 +30,37 @@ use log4rs::encode::pattern::PatternEncoder;
 use spoterm::config::UserConfig;
 use spoterm::event;
 use spoterm::spoterm::SpotermClient;
+use spoterm::spotify::SpotifyService;
 use spoterm::ui::UI;
+
+//Authorization Scopes
+//https://developer.spotify.com/documentation/general/guides/scopes/
+pub const SCOPES: [&str; 18] = [
+    //Listening History
+    "user-top-read",
+    "user-read-recently-played",
+    //Spotify Connect
+    "user-read-playback-state",
+    "user-read-currently-playing",
+    "user-modify-playback-state",
+    //Library
+    "user-library-modify",
+    "user-library-read",
+    //Playback
+    "streaming",
+    "app-remote-control",
+    "user-read-private",
+    "user-read-birthdate",
+    "user-read-email",
+    //Follow
+    "user-follow-modify",
+    "user-follow-read",
+    //PlayLists
+    "playlist-modify-public",
+    "playlist-read-collaborative",
+    "playlist-read-private",
+    "playlist-modify-private",
+];
 
 fn init_spoterm_config_if_needed() -> Result<(), failure::Error> {
     let config_dir = dirs::home_dir()
@@ -71,7 +101,8 @@ fn get_spotify_client_id_and_secret() -> Result<(String, String), Box<std::error
     ))
 }
 
-fn main() -> Result<(), Box<std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<std::error::Error>> {
     init_spoterm_config_if_needed()?;
 
     let logfile = FileAppender::builder()
@@ -87,7 +118,25 @@ fn main() -> Result<(), Box<std::error::Error>> {
     log4rs::init_config(config)?;
 
     let (client_id, client_secret) = get_spotify_client_id_and_secret()?;
-    let mut spoterm = SpotermClient::new(client_id, client_secret);
+    let spoterm_cache = dirs::home_dir()
+        .expect("can not find home directory")
+        .join(".spoterm")
+        .join(".spotify_token_cache.json");
+    let mut oauth = rspotify::oauth2::SpotifyOAuth::default()
+        .scope(&SCOPES.join(" "))
+        .client_id(&client_id)
+        .client_secret(&client_secret)
+        .redirect_uri("http://localhost:8888/callback")
+        .cache_path(spoterm_cache)
+        .build();
+    let token_info = rspotify::util::get_token(&mut oauth).await.unwrap();
+
+    let (tx, rx) = crossbeam::channel::unbounded();
+    let spotify = SpotifyService::new(token_info).api_result_tx(tx.clone());
+    let api_event_tx = spotify.api_event_tx.clone();
+    let mut spoterm = SpotermClient::new(rx.clone(), api_event_tx.clone());
+
+    spotify.run().await?;
     spoterm.request_device();
     spoterm.request_current_user_recently_played();
     spoterm.request_current_playback();
