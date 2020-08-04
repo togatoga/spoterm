@@ -129,14 +129,16 @@ async fn main() -> Result<(), Box<std::error::Error>> {
         .redirect_uri("http://localhost:8888/callback")
         .cache_path(spoterm_cache)
         .build();
+
     let token_info = rspotify::util::get_token(&mut oauth).await.unwrap();
 
     let (tx, rx) = crossbeam::channel::unbounded();
-    let spotify = SpotifyService::new(token_info).api_result_tx(tx.clone());
+    let spotify = SpotifyService::new(token_info, oauth).api_result_tx(tx.clone());
     let api_event_tx = spotify.api_event_tx.clone();
     let mut spoterm = SpotermClient::new(rx.clone(), api_event_tx.clone());
 
     spotify.run().await?;
+
     spoterm.request_device();
     spoterm.request_current_user_recently_played();
     spoterm.request_current_playback();

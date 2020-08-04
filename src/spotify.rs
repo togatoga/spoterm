@@ -41,6 +41,7 @@ pub enum SpotifyAPIResult {
 
 pub struct SpotifyService {
     pub client: client::Spotify,
+    pub oauth: rspotify::oauth2::SpotifyOAuth,
     pub api_result_tx: Option<crossbeam::channel::Sender<SpotifyAPIResult>>,
     pub api_event_tx: crossbeam::channel::Sender<SpotifyAPIEvent>,
     pub api_event_rx: crossbeam::channel::Receiver<SpotifyAPIEvent>,
@@ -75,7 +76,10 @@ const SCOPES: [&'static str; 18] = [
 ];
 
 impl SpotifyService {
-    pub fn new(token_info: rspotify::oauth2::TokenInfo) -> SpotifyService {
+    pub fn new(
+        token_info: rspotify::oauth2::TokenInfo,
+        oauth: rspotify::oauth2::SpotifyOAuth,
+    ) -> SpotifyService {
         let client_credential = rspotify::oauth2::SpotifyClientCredentials::default()
             .token_info(token_info)
             .build();
@@ -87,6 +91,7 @@ impl SpotifyService {
 
         SpotifyService {
             client: spotify,
+            oauth: oauth,
             api_result_tx: None,
             api_event_tx: tx,
             api_event_rx: rx,
@@ -96,7 +101,44 @@ impl SpotifyService {
         self.api_result_tx = Some(tx);
         self
     }
-    pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
+
+    pub async fn refresh_client(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let now = std::time::SystemTime::now();
+        let unixtime = now.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+        let old_token = self
+            .client
+            .client_credentials_manager
+            .clone()
+            .unwrap()
+            .token_info
+            .unwrap();
+        let expires_at_unix_time = old_token.expires_at.unwrap();
+        let refresh = if expires_at_unix_time <= unixtime {
+            true
+        } else {
+            false
+        };
+        if refresh {
+            let refresh_token = old_token.refresh_token.unwrap();
+            let token_info = self
+                .oauth
+                .refresh_access_token(&refresh_token)
+                .await
+                .unwrap();
+            log::info!("{:?}", token_info);
+
+            let client_credential = rspotify::oauth2::SpotifyClientCredentials::default()
+                .token_info(token_info)
+                .build();
+            let spotify = rspotify::client::Spotify::default()
+                .client_credentials_manager(client_credential)
+                .build();
+
+            self.client = spotify;
+        }
+        Ok(())
+    }
+    pub async fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
         let rx = self.api_event_rx.clone();
 
         tokio::spawn(async move {
