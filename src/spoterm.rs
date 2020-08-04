@@ -4,7 +4,7 @@ extern crate itertools;
 extern crate rspotify;
 extern crate unicode_width;
 
-use crate::spotify::{SpotifyAPIEvent, SpotifyAPIResult, SpotifyService};
+use crate::spotify::{SpotifyAPIEvent, SpotifyAPIResult};
 use crate::ui::{Contents, LikedSongs, RecentPlayed};
 
 use self::rspotify::model::context::CurrentlyPlaybackContext;
@@ -478,7 +478,7 @@ impl SpotermClient {
         self.spotify_data
             .save_state_track_ids
             .insert(id.clone(), UNKNOWN);
-        return SaveState::UNKNOWN;
+        SaveState::UNKNOWN
     }
     pub fn set_selected_device(&mut self) -> Result<(), failure::Error> {
         //skip

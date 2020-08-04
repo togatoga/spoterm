@@ -3,12 +3,9 @@ use crate::spotify::SpotifyAPIEvent;
 use itertools::Itertools;
 use rspotify::model::playing::PlayHistory;
 use rspotify::model::track::SavedTrack;
-use termion;
 use termion::input::MouseTerminal;
 use termion::raw::RawTerminal;
-use tui;
 use tui::widgets::{Block, Borders, SelectableList, Widget};
-use unicode_width;
 
 pub trait UI {
     fn key_down(&mut self);

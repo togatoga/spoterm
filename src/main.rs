@@ -1,5 +1,4 @@
 extern crate dirs;
-#[macro_use]
 extern crate log;
 extern crate log4rs;
 extern crate rpassword;
@@ -10,16 +9,15 @@ extern crate toml;
 
 use std::fs;
 use std::io;
-use std::path;
 
-use termion::event::{Event, Key};
-use termion::input::{MouseTerminal, TermRead};
+use termion::event::Key;
+use termion::input::MouseTerminal;
 use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
 use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Style};
-use tui::widgets::{Block, Borders, List, Paragraph, SelectableList, Tabs, Text, Widget};
+use tui::widgets::{Block, Borders, List, Paragraph, Tabs, Text, Widget};
 use tui::Terminal;
 
 use log::LevelFilter;
@@ -31,7 +29,6 @@ use spoterm::config::UserConfig;
 use spoterm::event;
 use spoterm::spoterm::SpotermClient;
 use spoterm::spotify::SpotifyService;
-use spoterm::ui::UI;
 
 //Authorization Scopes
 //https://developer.spotify.com/documentation/general/guides/scopes/
@@ -86,7 +83,7 @@ fn init_spoterm_config_if_needed() -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn get_spotify_client_id_and_secret() -> Result<(String, String), Box<std::error::Error>> {
+fn get_spotify_client_id_and_secret() -> Result<(String, String), Box<dyn std::error::Error>> {
     //read config from file
     let config = dirs::home_dir()
         .expect("can not find home directory")
@@ -102,7 +99,7 @@ fn get_spotify_client_id_and_secret() -> Result<(String, String), Box<std::error
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_spoterm_config_if_needed()?;
 
     let logfile = FileAppender::builder()
@@ -143,7 +140,7 @@ async fn main() -> Result<(), Box<std::error::Error>> {
     spoterm.request_current_user_recently_played();
     spoterm.request_current_playback();
     spoterm.request_current_user_saved_tracks();
-    spoterm.set_selected_device();
+    spoterm.set_selected_device()?;
     // Terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
@@ -173,7 +170,7 @@ async fn main() -> Result<(), Box<std::error::Error>> {
                 },
                 event::Event::Tick => {
                     spoterm.fetch_api_result();
-                    spoterm.set_selected_device();
+                    spoterm.set_selected_device()?;
                 }
                 event::Event::APIUpdate => {
                     spoterm.request_device();
@@ -181,8 +178,7 @@ async fn main() -> Result<(), Box<std::error::Error>> {
                     spoterm.request_current_user_recently_played();
                     spoterm.request_current_user_saved_tracks();
                     spoterm.request_check_unknown_saved_tracks();
-                }
-                _ => {}
+                } // _ => {}
             }
         } else {
             match event_handler.next()? {
@@ -240,7 +236,7 @@ async fn main() -> Result<(), Box<std::error::Error>> {
                 },
                 event::Event::Tick => {
                     spoterm.fetch_api_result();
-                    spoterm.set_selected_device();
+                    spoterm.set_selected_device()?;
                 }
                 event::Event::APIUpdate => {
                     spoterm.request_device();
@@ -248,8 +244,7 @@ async fn main() -> Result<(), Box<std::error::Error>> {
                     spoterm.request_current_user_recently_played();
                     spoterm.request_current_user_saved_tracks();
                     spoterm.request_check_unknown_saved_tracks();
-                }
-                _ => {}
+                } // _ => {}
             }
         }
         let filter = spoterm.contents.filter.clone();
@@ -286,12 +281,12 @@ async fn main() -> Result<(), Box<std::error::Error>> {
                 "Filter(Filter Mode: /)"
             };
             Paragraph::new([Text::raw(filter)].iter())
-                .style((Style::default().fg(Color::White)))
+                .style(Style::default().fg(Color::White))
                 .block(Block::default().borders(Borders::ALL).title(filter_title))
                 .render(&mut f, chunks[2]);
 
             spoterm.contents.uis[spoterm.selected_menu_tab_id].render(&mut f, chunks[3]);
-        });
+        })?;
     }
     Ok(())
 }

@@ -5,10 +5,7 @@ use self::rspotify::client;
 use self::rspotify::model;
 use self::rspotify::model::page::Page;
 use self::rspotify::model::track::SavedTrack;
-use self::rspotify::oauth2;
 use self::rspotify::senum::RepeatState;
-use std::thread;
-use tokio::prelude::*;
 
 pub enum SpotifyAPIEvent {
     Shuffle(bool, Option<String>),
@@ -46,34 +43,6 @@ pub struct SpotifyService {
     pub api_event_tx: crossbeam::channel::Sender<SpotifyAPIEvent>,
     pub api_event_rx: crossbeam::channel::Receiver<SpotifyAPIEvent>,
 }
-//Authorization Scopes
-//https://developer.spotify.com/documentation/general/guides/scopes/
-const SCOPES: [&'static str; 18] = [
-    //Listening History
-    "user-top-read",
-    "user-read-recently-played",
-    //Spotify Connect
-    "user-read-playback-state",
-    "user-read-currently-playing",
-    "user-modify-playback-state",
-    //Library
-    "user-library-modify",
-    "user-library-read",
-    //Playback
-    "streaming",
-    "app-remote-control",
-    "user-read-private",
-    "user-read-birthdate",
-    "user-read-email",
-    //Follow
-    "user-follow-modify",
-    "user-follow-read",
-    //PlayLists
-    "playlist-modify-public",
-    "playlist-read-collaborative",
-    "playlist-read-private",
-    "playlist-modify-private",
-];
 
 impl SpotifyService {
     pub fn new(
@@ -91,7 +60,7 @@ impl SpotifyService {
 
         SpotifyService {
             client: spotify,
-            oauth: oauth,
+            oauth,
             api_result_tx: None,
             api_event_tx: tx,
             api_event_rx: rx,
