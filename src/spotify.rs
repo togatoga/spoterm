@@ -143,6 +143,7 @@ impl SpotifyService {
 
         tokio::spawn(async move {
             loop {
+                self.refresh_client().await;
                 match rx.recv().unwrap() {
                     SpotifyAPIEvent::Shuffle(state, device_id) => {
                         self.fetch_shuffle(state, device_id).await;
